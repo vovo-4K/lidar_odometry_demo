@@ -7,6 +7,14 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(PCL REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(Eigen3 REQUIRED)
+
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -15,7 +23,9 @@ add_executable(lidar_odometry_node src/lidar_odometry_node.cpp)
 target_include_directories(lidar_odometry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(lidar_odometry_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(lidar_odometry_node PUBLIC c_std_99 cxx_std_23)
+
+ament_target_dependencies(lidar_odometry_node rclcpp sensor_msgs tf2 tf2_ros pcl_conversions Eigen3)
 
 install(TARGETS lidar_odometry_node
   DESTINATION lib/${PROJECT_NAME})
