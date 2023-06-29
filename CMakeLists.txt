@@ -19,7 +19,10 @@ find_package(Eigen3 REQUIRED)
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(lidar_odometry_node src/lidar_odometry_node.cpp)
+add_executable(lidar_odometry_node
+        src/lidar_odometry_node.cpp
+        src/lidar_odometry.cpp
+        )
 target_include_directories(lidar_odometry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -29,6 +32,10 @@ ament_target_dependencies(lidar_odometry_node rclcpp sensor_msgs tf2 tf2_ros pcl
 
 install(TARGETS lidar_odometry_node
   DESTINATION lib/${PROJECT_NAME})
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
