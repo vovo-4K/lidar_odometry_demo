@@ -7,40 +7,59 @@
 
 #include <map>
 #include <string>
+#include <utility>
 #include <rclcpp/rclcpp.hpp>
+#include <pcl/point_cloud.h>
+
+#include "lidar_point_type.h"
+#include "pose_3d.h"
 
 class LidarOdometry {
 public:
 
+    using CloudType = pcl::PointCloud<lidar_point::PointXYZIRT>;
+
     class Params {
     public:
-        double lidar_max_range = 80.0;
-        double keyframe_voxel_size = 0.04;
-
+        float lidar_min_range;
+        float lidar_max_range;
+        float keyframe_voxel_size;
 
         using ROS2ParametersMap = std::map<std::string, rclcpp::ParameterValue>;
 
         static ROS2ParametersMap GetROSDeclaration()
         {
-            return {{"lidar_max_range", rclcpp::ParameterValue(80.0)},
-                    {"keyframe_voxel_size", rclcpp::ParameterValue(0.05)}
+            return {
+                {"lidar_min_range", rclcpp::ParameterValue(2.0)},
+                {"lidar_max_range", rclcpp::ParameterValue(80.0)},
+                {"keyframe_voxel_size", rclcpp::ParameterValue(0.05)}
             };
         }
 
-        static Params FromROSParams(const ROS2ParametersMap& params)
+        static Params FromROS2Params(const ROS2ParametersMap& params)
         {
             Params output;
-            output.lidar_max_range = params.at("lidar_max_range").get<double>();
-            output.keyframe_voxel_size = params.at("keyframe_voxel_size").get<double>();
+            output.lidar_min_range = params.at("lidar_min_range").get<float>();
+            output.lidar_max_range = params.at("lidar_max_range").get<float>();
+            output.keyframe_voxel_size = params.at("keyframe_voxel_size").get<float>();
             return output;
         }
     };
 
-    LidarOdometry(const Params& config)
-    : config_(config) {}
+    explicit LidarOdometry(const Params& config);
 
-protected:
+    void processCloud(const CloudType& input_cloud);
+
+    CloudType::ConstPtr getKeyFrameCloud() const;
+private:
+    CloudType::Ptr transformNonRigid(const CloudType& input, const Pose3D& start_pose, const Pose3D& end_pose) const;
+    CloudType::Ptr transform(const CloudType& input, const Pose3D& pose) const;
+    CloudType::Ptr rangeFilter(const CloudType& input, float min_range, float max_range) const;
+
     const Params config_;
+
+    CloudType::Ptr keyframe_cloud_;
+    Pose3D previous_transform_;
 };
 
 
