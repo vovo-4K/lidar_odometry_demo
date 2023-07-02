@@ -22,6 +22,7 @@ include_directories(
 add_executable(lidar_odometry_node
         src/lidar_odometry_node.cpp
         src/lidar_odometry.cpp
+        src/utils/point_time_normalize.h
         )
 target_include_directories(lidar_odometry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -39,15 +40,21 @@ install(DIRECTORY config
 )
 
 if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
+  find_package(ament_cmake_gtest REQUIRED)
+
+  ament_add_gtest(${PROJECT_NAME}_test
+          test/transform_test.cpp
+          src/utils/cloud_transform.h
+          )
+
+  target_include_directories(${PROJECT_NAME}_test PUBLIC
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+          $<INSTALL_INTERFACE:include>
+          )
+  ament_target_dependencies(${PROJECT_NAME}_test
+          Eigen3
+          )
+  target_link_libraries(${PROJECT_NAME}_test )
 endif()
 
 ament_package()

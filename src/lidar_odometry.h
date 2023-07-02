@@ -54,14 +54,14 @@ public:
 
     Pose3D getCurrentPose() const;
 private:
-    CloudType::Ptr transformNonRigid(const CloudType& input, const Pose3D& start_pose, const Pose3D& end_pose) const;
-    CloudType::Ptr transform(const CloudType& input, const Pose3D& pose) const;
     CloudType::Ptr rangeFilter(const CloudType& input, float min_range, float max_range) const;
 
     const Params config_;
 
     CloudType::Ptr keyframe_cloud_;
+
     Pose3D previous_transform_;
+    Pose3D current_transform_;
 };
 
 

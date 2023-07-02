@@ -11,6 +11,14 @@ class Pose3D {
 public:
     Eigen::Vector3f translation;
     Eigen::Quaternionf rotation;
+
+    Pose3D() {
+        translation.setZero();
+        rotation.setIdentity();
+    }
+
+    Pose3D(const Eigen::Vector3f& translation, const Eigen::Quaternionf& rotation)
+    : translation(translation), rotation(rotation) {}
 };
 
 #endif //BUILD_POSE3D_H
