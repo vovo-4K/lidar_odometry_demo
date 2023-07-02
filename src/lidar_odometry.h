@@ -51,6 +51,8 @@ public:
     void processCloud(const CloudType& input_cloud);
 
     CloudType::ConstPtr getKeyFrameCloud() const;
+
+    Pose3D getCurrentPose() const;
 private:
     CloudType::Ptr transformNonRigid(const CloudType& input, const Pose3D& start_pose, const Pose3D& end_pose) const;
     CloudType::Ptr transform(const CloudType& input, const Pose3D& pose) const;

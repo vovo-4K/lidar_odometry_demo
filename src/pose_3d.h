@@ -10,7 +10,7 @@
 class Pose3D {
 public:
     Eigen::Vector3f translation;
-    Eigen::Quaterniond rotation;
+    Eigen::Quaternionf rotation;
 };
 
 #endif //BUILD_POSE3D_H

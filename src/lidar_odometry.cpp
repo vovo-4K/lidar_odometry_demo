@@ -37,14 +37,34 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
         return;
     }
 
+  {
+    pcl::VoxelGrid<CloudType::PointType> voxel_filter_;
+    voxel_filter_.setLeafSize(0.2, 0.2, 0.2);
+    voxel_filter_.setInputCloud(filtered_cloud);
+
+    auto downsampled_cloud = std::make_shared<CloudType>();
+    voxel_filter_.filter(*downsampled_cloud);
+
+    filtered_cloud = downsampled_cloud;
+  }
+
+    Eigen::Isometry3f guess;
+    guess.fromPositionOrientationScale(previous_transform_.translation, previous_transform_.rotation, Eigen::Vector3f(1.0, 1.0, 1.0));
+
     pcl::IterativeClosestPoint<CloudType::PointType, CloudType::PointType> icp;
 
     icp.setInputSource(filtered_cloud);
     icp.setInputTarget(keyframe_cloud_);
     auto aligned = std::make_shared<CloudType>();
-    icp.align(*aligned);
+    icp.align(*aligned, guess.matrix());
 
     *keyframe_cloud_ += *aligned;
+
+    auto final_transform = icp.getFinalTransformation();
+    Eigen::Isometry3f transform(final_transform);
+
+    previous_transform_.translation = transform.translation();
+    previous_transform_.rotation = transform.rotation();
 
     pcl::VoxelGrid<CloudType::PointType> voxel_filter_;
     voxel_filter_.setLeafSize(config_.keyframe_voxel_size, config_.keyframe_voxel_size, config_.keyframe_voxel_size);
@@ -86,4 +106,8 @@ LidarOdometry::rangeFilter(const LidarOdometry::CloudType &input, float min_rang
 
 LidarOdometry::CloudType::ConstPtr LidarOdometry::getKeyFrameCloud() const {
     return keyframe_cloud_;
+}
+
+Pose3D LidarOdometry::getCurrentPose() const {
+    return previous_transform_;
 }
