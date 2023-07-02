@@ -18,17 +18,24 @@ public:
         lidar_point::PointXYZIRT point;
     };
 
+    VoxelGrid() = default;
+    explicit VoxelGrid(float voxel_size)
+    {
+        setVoxelSize(voxel_size);
+    }
+
     void setVoxelSize(float voxel_size)
     {
-        voxels.clear();
-        voxel_size = voxel_size;
+        voxels_.clear();
+        voxel_size_ = voxel_size;
+        max_range_  = pow(2, 21) / voxel_size_;
     }
 
     uint64_t getHash(float x, float y, float z) const
     {
-        auto ix = static_cast<int64_t>(x / voxel_size);
-        auto iy = static_cast<int64_t>(y / voxel_size);
-        auto iz = static_cast<int64_t>(z / voxel_size);
+        auto ix = static_cast<int64_t>(x / voxel_size_);
+        auto iy = static_cast<int64_t>(y / voxel_size_);
+        auto iz = static_cast<int64_t>(z / voxel_size_);
 
         uint64_t index = ((ix & 0b11111'11111111'11111111) << 42) +
                          ((iy & 0b11111'11111111'11111111) << 21) +
@@ -40,11 +47,16 @@ public:
     void addCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>& cloud)
     {
         for (const auto& point : cloud.points) {
+            if (point.x < -max_range_ || point.x > max_range_ ||
+                point.y < -max_range_ || point.y > max_range_ ||
+                point.z < -max_range_ || point.z > max_range_) {
+                continue;
+            }
             auto hash = getHash(point.x, point.y, point.z);
-            if (!voxels.contains(hash)) {
+            if (!voxels_.contains(hash)) {
                 Voxel voxel{};
                 voxel.point = point;
-                voxels.insert({hash, voxel});
+                voxels_.insert({hash, voxel});
             }
         }
     }
@@ -52,15 +64,17 @@ public:
     pcl::PointCloud<lidar_point::PointXYZIRT>::Ptr getCloud() const
     {
         auto output_cloud = std::make_shared<pcl::PointCloud<lidar_point::PointXYZIRT>>();
-        output_cloud->points.reserve(voxels.size());
-        for (const auto& voxel : voxels) {
+        output_cloud->points.reserve(voxels_.size());
+        for (const auto& voxel : voxels_) {
             output_cloud->points.push_back(voxel.second.point);
         }
         return output_cloud;
     }
 
-    float voxel_size;
-    tsl::robin_map<uint64_t, Voxel> voxels;
+private:
+    float voxel_size_;
+    float max_range_ = 60.0;
+    tsl::robin_map<uint64_t, Voxel> voxels_;
 };
 
 

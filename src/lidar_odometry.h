@@ -57,8 +57,6 @@ public:
 private:
     const Params config_;
 
-    CloudType::Ptr keyframe_cloud_;
-
     VoxelGrid keyframe_grid_;
 
     Pose3D previous_transform_;
