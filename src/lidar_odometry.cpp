@@ -8,6 +8,7 @@
 #include <pcl/registration/icp.h>
 #include "utils/cloud_transform.h"
 #include "utils/point_time_normalize.h"
+#include "utils/range_filter.h"
 
 LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(config) {
     current_transform_.translation.setZero();
@@ -18,7 +19,7 @@ LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(conf
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
 
     // pre filter cloud
-    auto filtered_cloud = rangeFilter(input_cloud, config_.lidar_min_range, config_.lidar_max_range);
+    auto filtered_cloud = utils::rangeFilter(input_cloud, config_.lidar_min_range, config_.lidar_max_range);
 
     auto time_normalized = utils::pointTimeNormalize(*filtered_cloud);
 
@@ -98,24 +99,6 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
     voxel_filter_.filter(*downsampled_cloud);
 
     keyframe_cloud_ = downsampled_cloud;
-}
-
-LidarOdometry::CloudType::Ptr
-LidarOdometry::rangeFilter(const CloudType &input, float min_range, float max_range) const {
-    const auto min_range_sq = min_range*min_range;
-    const auto max_range_sq = max_range*max_range;
-
-    auto output_cloud_ptr = std::make_shared<CloudType>();
-    output_cloud_ptr->points.reserve(input.points.size());
-
-    for (const auto& point : input.points) {
-        const auto range_sq = point.x*point.x + point.y*point.y + point.z*point.z;
-        if (range_sq>=min_range_sq && range_sq<=max_range_sq) {
-            output_cloud_ptr->points.push_back(point);
-        }
-    }
-
-    return output_cloud_ptr;
 }
 
 LidarOdometry::CloudType::ConstPtr LidarOdometry::getKeyFrameCloud() const {

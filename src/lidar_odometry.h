@@ -13,6 +13,7 @@
 
 #include "lidar_point_type.h"
 #include "pose_3d.h"
+#include "voxel_grid.h"
 
 class LidarOdometry {
 public:
@@ -54,11 +55,11 @@ public:
 
     Pose3D getCurrentPose() const;
 private:
-    CloudType::Ptr rangeFilter(const CloudType& input, float min_range, float max_range) const;
-
     const Params config_;
 
     CloudType::Ptr keyframe_cloud_;
+
+    VoxelGrid keyframe_grid_;
 
     Pose3D previous_transform_;
     Pose3D current_transform_;

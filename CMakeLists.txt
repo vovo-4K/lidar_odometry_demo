@@ -15,21 +15,26 @@ find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(Eigen3 REQUIRED)
 
+add_subdirectory(third-party/robin-map)
+
 include_directories(
         ${PCL_INCLUDE_DIRS}
 )
 
 add_executable(lidar_odometry_node
+        src/cloud_matcher.cpp
         src/lidar_odometry_node.cpp
         src/lidar_odometry.cpp
         src/utils/point_time_normalize.h
+        src/utils/range_filter.h
+        src/voxel_grid.h
         )
 target_include_directories(lidar_odometry_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_compile_features(lidar_odometry_node PUBLIC c_std_99 cxx_std_23)
 
-target_link_libraries(lidar_odometry_node ${PCL_LIBRARIES})
+target_link_libraries(lidar_odometry_node ${PCL_LIBRARIES} tsl::robin_map)
 ament_target_dependencies(lidar_odometry_node rclcpp sensor_msgs tf2 tf2_ros pcl_conversions Eigen3)
 
 install(TARGETS lidar_odometry_node
