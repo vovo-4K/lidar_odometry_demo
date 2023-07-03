@@ -40,7 +40,7 @@ namespace utils {
         auto output_cloud = std::make_shared<pcl::PointCloud<PointType>>();
         output_cloud->points.resize(input.points.size());
 
-        std::transform(std::execution::par, input.points.cbegin(), input.points.cend(), output_cloud->points.begin(),
+        std::transform(input.points.cbegin(), input.points.cend(), output_cloud->points.begin(),
                        [pose](const auto& input_point) {
                            auto output_point = input_point;
 

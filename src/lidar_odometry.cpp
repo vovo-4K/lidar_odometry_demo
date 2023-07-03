@@ -14,7 +14,7 @@ LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(conf
     current_transform_.translation.setZero();
     current_transform_.rotation.setIdentity();
     previous_transform_ = current_transform_;
-    keyframe_grid_.setVoxelSize(config_.keyframe_voxel_size);
+    keyframe_grid_.setVoxelSize(0.2);//config_.keyframe_voxel_size);
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
@@ -49,7 +49,7 @@ std::cout<<"cloud"<<std::endl;
     auto deskewed_cloud = utils::transformNonRigid(*time_normalized, Pose3D(), end_point_local);
 
     // match with keyframe
-    VoxelGrid scan_downsampler(0.25);
+    VoxelGrid scan_downsampler(0.5);
     scan_downsampler.addCloud(*deskewed_cloud);
     auto deskewed_voxelized = scan_downsampler.getCloud();
 

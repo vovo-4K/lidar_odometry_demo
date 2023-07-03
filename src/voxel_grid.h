@@ -52,11 +52,11 @@ public:
     void addCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>& cloud)
     {
         for (const auto& point : cloud.points) {
-            if (point.x < -max_range_ || point.x > max_range_ ||
+           /* if (point.x < -max_range_ || point.x > max_range_ ||
                 point.y < -max_range_ || point.y > max_range_ ||
                 point.z < -max_range_ || point.z > max_range_) {
                 continue;
-            }
+            }*/
             auto hash = getHash(point.x, point.y, point.z);
             if (!voxels_.contains(hash)) {
                 Voxel voxel{};
@@ -99,7 +99,7 @@ public:
             for (auto iy = origin_idy - 1;  iy <= origin_idy + 1; iy++) {
                 for (auto iz = origin_idz - 1; iz <= origin_idz + 1; iz++) {
                     auto hash = getHash(ix, iy, iz);
-                    if (voxels_.contains(hash)) {
+                    if (voxels_.find(hash)!=voxels_.end()) {
                         const auto& voxel = voxels_.at(hash);
                         auto dist_sq = pow(voxel.point.x() - point.x, 2) +
                                        pow(voxel.point.y() - point.y, 2) +
@@ -117,7 +117,7 @@ public:
         return min_dist;
     }
 
-    std::vector<Correspondence> fingMatchingPairs(const pcl::PointCloud<lidar_point::PointXYZIRT>& cloud, float max_correspondence_distance) const
+    std::vector<Correspondence> findMatchingPairs(const pcl::PointCloud<lidar_point::PointXYZIRT>& cloud, float max_correspondence_distance) const
     {
         const auto max_distance_sq = max_correspondence_distance * max_correspondence_distance;
         std::vector<Correspondence> output;
