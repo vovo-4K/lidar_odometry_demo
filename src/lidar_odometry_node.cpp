@@ -32,6 +32,8 @@ public:
 protected:
     void onPointCloudCallback(const sensor_msgs::msg::PointCloud2::SharedPtr msg_ptr)
     {
+        std::cout<<"cloud_"<<std::endl;
+
         pcl::PointCloud<lidar_point::PointXYZIRT> cloud;
         pcl::fromROSMsg(*msg_ptr, cloud);
 
