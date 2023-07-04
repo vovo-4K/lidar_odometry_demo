@@ -8,7 +8,7 @@
 Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_point::PointXYZIRT>::ConstPtr cloud,
                            const Pose3D &position_guess) {
 
-    const int max_iter = 10;
+    const int max_iter = 20;
     const float max_correspondence_distance = 0.2;
 
     Pose3D current_pose = position_guess;
@@ -22,7 +22,7 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_poin
         //solve
         Eigen::MatrixXd Jacobian(matching_pairs.size()*3, 6);
         Eigen::MatrixXd error_vector(matching_pairs.size()*3, 1);
-        Eigen::VectorXd weights(matching_pairs.size());
+        Eigen::VectorXd weights(matching_pairs.size()*3);
 
         double q0 = current_pose.rotation.w();
         double q1 = current_pose.rotation.x();
@@ -81,26 +81,43 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_poin
             Eigen::Vector3d orig_point(original_point.x, original_point.y, original_point.z);
 
             const auto& transformed_point = transformed_cloud->at(matching_pairs.at(row).source_point_idx);
-            Eigen::Vector3f source_point(transformed_point.x, transformed_point.y, transformed_point.z);
-            error_vector.block<3, 1>(row*3, 0) = (source_point - matching_pairs.at(row).target_point).cast<double>();
+            Eigen::Vector3d source_point(transformed_point.x, transformed_point.y, transformed_point.z);
+            error_vector.block<3, 1>(row*3, 0) = (source_point - matching_pairs.at(row).target_point.cast<double>());
 
-            weights(row) = 1.0;
+            const double delta = 0.1;
+            if (matching_pairs.at(row).range_sq < delta * delta) {
+                weights(row*3) = matching_pairs.at(row).range_sq;
+            } else {
+                weights(row*3) = delta * (sqrt(matching_pairs.at(row).range_sq) - 0.5 * delta);
+            }
+            weights(row*3 + 1) = weights(row*3);
+            weights(row*3 + 2) = weights(row*3);
 
             //e = |R * source_orig + t - target|
             // translational part
             Jacobian.block<3, 3>(row*3, 0) = Eigen::Matrix3d::Identity();
             //rotational part
-            Jacobian.block<3, 1>(row*3, 3) = dRdx.block<3, 1>(0, 0) * orig_point(0);
-            Jacobian.block<3, 1>(row*3, 4) = dRdy.block<3, 1>(0, 1) * orig_point(1);
-            Jacobian.block<3, 1>(row*3, 5) = dRdz.block<3, 1>(0, 2) * orig_point(2);
+          //  Jacobian.block<3, 1>(row*3, 3) =
+          //  Jacobian.block<3, 1>(row*3, 4) =
+          //  Jacobian.block<3, 1>(row*3, 5) =
+
+            Eigen::Matrix3d J;
+            J <<
+            dRdx.block<1, 3>(0, 0) * source_point, dRdy.block<1, 3>(0, 0) * source_point, dRdz.block<1, 3>(0, 0) * source_point,
+            dRdx.block<1, 3>(1, 0) * source_point, dRdy.block<1, 3>(1, 0) * source_point, dRdz.block<1, 3>(1, 0) * source_point,
+            dRdx.block<1, 3>(2, 0) * source_point, dRdy.block<1, 3>(2, 0) * source_point, dRdz.block<1, 3>(2, 0) * source_point;
+
+            Jacobian.block<3, 3>(row*3, 3) = J;
+
         }
 
-        auto A = Jacobian.transpose() * Jacobian; // TODO: weights
-        auto b = Jacobian.transpose() * error_vector;
+        auto diag_weights = weights.asDiagonal();
+        auto A = Jacobian.transpose() * diag_weights * Jacobian;
+        auto b = Jacobian.transpose() * diag_weights * error_vector;
 
         Eigen::Matrix<double, 6, 1> delta = A.ldlt().solve(-b);
 
-        std::cout<<delta<<std::endl;
+        std::cout<<delta.norm()<<std::endl;
 
         current_pose.translation += delta.block<3, 1>(0,0).cast<float>().transpose();
         // recover quaternion
@@ -116,6 +133,5 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_poin
 
         //check for convergence
     }
-    std::cout<<current_pose.translation<<std::endl;
     return current_pose;
 }
