@@ -24,7 +24,7 @@ public:
     {
         Eigen::Quaternionf inverse_rotation = rotation.inverse();
         Eigen::Vector3f inverse_translation = inverse_rotation * (-translation);
-        return {inverse_translation, inverse_rotation};
+        return {inverse_translation + target.translation, inverse_rotation * target.rotation};
     }
 
     Pose3D compose(const Pose3D& another) const
