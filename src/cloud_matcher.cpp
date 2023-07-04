@@ -90,9 +90,9 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_poin
             // translational part
             Jacobian.block<3, 3>(row*3, 0) = Eigen::Matrix3d::Identity();
             //rotational part
-            Jacobian.block<3, 1>(row*3, 3) = dRdx * orig_point;
-            Jacobian.block<3, 1>(row*3, 4) = dRdy * orig_point;
-            Jacobian.block<3, 1>(row*3, 5) = dRdz * orig_point;
+            Jacobian.block<3, 1>(row*3, 3) = dRdx.block<3, 1>(0, 0) * orig_point(0);
+            Jacobian.block<3, 1>(row*3, 4) = dRdy.block<3, 1>(0, 1) * orig_point(1);
+            Jacobian.block<3, 1>(row*3, 5) = dRdz.block<3, 1>(0, 2) * orig_point(2);
         }
 
         auto A = Jacobian.transpose() * Jacobian; // TODO: weights
