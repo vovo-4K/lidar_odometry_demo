@@ -48,8 +48,15 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
   ament_add_gtest(${PROJECT_NAME}_test
-          test/transform_test.cpp
-          src/utils/cloud_transform.h
+          test/test.cpp
+          src/cloud_matcher.cpp
+          src/voxel_grid.h
+          )
+
+  target_compile_features(${PROJECT_NAME}_test PUBLIC cxx_std_23)
+
+  install(DIRECTORY test/test_data/
+          DESTINATION ${CMAKE_BINARY_DIR}/${PROJECT_NAME}_test_data
           )
 
   target_include_directories(${PROJECT_NAME}_test PUBLIC
@@ -59,7 +66,7 @@ if(BUILD_TESTING)
   ament_target_dependencies(${PROJECT_NAME}_test
           Eigen3
           )
-  target_link_libraries(${PROJECT_NAME}_test )
+  target_link_libraries(${PROJECT_NAME}_test ${PCL_LIBRARIES} tsl::robin_map)
 endif()
 
 ament_package()

@@ -14,17 +14,17 @@ LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(conf
     current_transform_.translation.setZero();
     current_transform_.rotation.setIdentity();
     previous_transform_ = current_transform_;
-    keyframe_grid_.setVoxelSize(0.25);//config_.keyframe_voxel_size);
+    keyframe_grid_.setVoxelSize(config_.keyframe_voxel_size);
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
-std::cout<<"cloud"<<std::endl;
     // pre filter cloud
     auto filtered_cloud = utils::rangeFilter(input_cloud, config_.lidar_min_range, config_.lidar_max_range);
 
     // init keyframe
     if (keyframe_grid_.size() == 0) {
-        keyframe_grid_.addCloud(*filtered_cloud);
+        auto initial_cloud = CloudTransformer::transformNonRigid(*filtered_cloud, Pose3D(), Pose3D());
+        keyframe_grid_.addCloud(*initial_cloud);
         return;
     }
 
@@ -32,10 +32,10 @@ std::cout<<"cloud"<<std::endl;
     auto time_normalized = utils::pointTimeNormalize(*filtered_cloud);
 
     // deskew cloud
-    auto relative_transform = previous_transform_.getRelativeTo(current_transform_);
+    auto relative_transform = previous_transform_.relativeTo(current_transform_);
     previous_transform_ = current_transform_;
 
-    auto deskewed_cloud = utils::transformNonRigid(*time_normalized, Pose3D(), relative_transform);
+    auto deskewed_cloud = CloudTransformer::transformNonRigid(*time_normalized, Pose3D(), relative_transform);
 
     // match with keyframe
     VoxelGrid scan_downsampler(1.0);
@@ -43,14 +43,14 @@ std::cout<<"cloud"<<std::endl;
     auto deskewed_voxelized = scan_downsampler.getCloud();
 
     CloudMatcher matcher;
-    current_transform_ = matcher.align(keyframe_grid_, deskewed_voxelized, current_transform_.compose(relative_transform));
+    current_transform_ = matcher.align(keyframe_grid_, *deskewed_voxelized, current_transform_.compose(relative_transform));
 
     // update keyframe
-    auto deskewed_full_cloud_transformed = utils::transform(*deskewed_cloud, current_transform_);
+    auto deskewed_full_cloud_transformed = CloudTransformer::transform(*deskewed_cloud, current_transform_);
     keyframe_grid_.addCloud(*deskewed_full_cloud_transformed);
 }
 
-LidarOdometry::CloudType::ConstPtr LidarOdometry::getKeyFrameCloud() const {
+pcl::PointCloud<pcl::PointXYZ>::Ptr LidarOdometry::getKeyFrameCloud() const {
     return keyframe_grid_.getCloud();
 }
 

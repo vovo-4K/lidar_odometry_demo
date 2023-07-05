@@ -20,7 +20,7 @@ public:
     Pose3D(const Eigen::Vector3f& translation, const Eigen::Quaternionf& rotation)
     : translation(translation), rotation(rotation) {}
 
-    Pose3D getRelativeTo(const Pose3D& target) const
+    Pose3D relativeTo(const Pose3D& target) const
     {
         Eigen::Quaternionf inverse_rotation = rotation.inverse();
         Eigen::Vector3f inverse_translation = inverse_rotation * (-translation);
@@ -31,6 +31,14 @@ public:
     {
         return {translation + rotation * another.translation, rotation * another.rotation};
     }
+
+    Pose3D inverse() const
+    {
+        Eigen::Quaternionf inverse_rotation = rotation.inverse();
+        Eigen::Vector3f inverse_translation = inverse_rotation * (-translation);
+        return {inverse_translation, inverse_rotation};
+    }
+
 };
 
 #endif //BUILD_POSE3D_H

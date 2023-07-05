@@ -1,0 +1,3 @@
+Simulated scan taken from intersection demo:
+
+https://www.blensor.org/intersection_scan.html

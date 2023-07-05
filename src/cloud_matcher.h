@@ -12,7 +12,7 @@
 
 class CloudMatcher {
 public:
-    Pose3D align(const VoxelGrid& keyframe, pcl::PointCloud<lidar_point::PointXYZIRT>::ConstPtr cloud,
+    Pose3D align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
                  const Pose3D& position_guess);
 };
 

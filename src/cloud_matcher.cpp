@@ -5,7 +5,7 @@
 #include "cloud_matcher.h"
 #include "utils/cloud_transform.h"
 
-Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_point::PointXYZIRT>::ConstPtr cloud,
+Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
                            const Pose3D &position_guess) {
 
     const int max_iter = 20;
@@ -15,7 +15,7 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_poin
 
     for (size_t i = 0; i < max_iter; i++) {
         //get correspondences
-        auto transformed_cloud = utils::transform(*cloud, current_pose);
+        auto transformed_cloud = CloudTransformer::transform(cloud, current_pose);
 
         auto matching_pairs = keyframe.findMatchingPairs(*transformed_cloud, max_correspondence_distance);
 
@@ -77,7 +77,7 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, pcl::PointCloud<lidar_poin
         Eigen::Matrix3d dRdz = dRdqw*dqdz(0) + dRdqx*dqdz(1) + dRdqy*dqdz(2) + dRdqz*dqdz(3);
 
         for (size_t row = 0; row<matching_pairs.size(); row++) {
-            const auto& original_point = cloud->points.at(matching_pairs.at(row).source_point_idx); // TODO: move to correspondence
+            const auto& original_point = cloud.points.at(matching_pairs.at(row).source_point_idx); // TODO: move to correspondence
             Eigen::Vector3d orig_point(original_point.x, original_point.y, original_point.z);
 
             const auto& transformed_point = transformed_cloud->at(matching_pairs.at(row).source_point_idx);
