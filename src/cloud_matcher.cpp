@@ -86,12 +86,13 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
             Jacobian(row, 4) = 2.0 * (dRdy*corr.source_point_local).dot(e);
             Jacobian(row, 5) = 2.0 * (dRdz*corr.source_point_local).dot(e);
 
-            const double delta = 0.1;
+            const double delta = 0.06;
             if (matching_pairs.at(row).range_sq < delta * delta) {
                 weights(row) = matching_pairs.at(row).range_sq;
             } else {
                 weights(row) = delta * (sqrt(matching_pairs.at(row).range_sq) - 0.5 * delta);
             }
+            //weights(row) = 1.0;
         }
 
         auto diag_weights = weights.asDiagonal();

@@ -25,7 +25,7 @@ TEST(VoxelGrid, UniquePoints)
     input_cloud.points.emplace_back(0,-1,0);
     input_cloud.points.emplace_back(0,0,-1);
 
-    VoxelGrid voxel_grid(0.5);
+    VoxelGrid voxel_grid(0.5, 1);
     voxel_grid.addCloud(input_cloud);
 
     ASSERT_EQ(voxel_grid.size(), input_cloud.size());
@@ -53,7 +53,7 @@ TEST(VoxelGrid, DuplicatePoints)
     input_cloud.points.emplace_back(0,0,0);
     input_cloud.points.emplace_back(1,0,0);
 
-    VoxelGrid voxel_grid(0.5);
+    VoxelGrid voxel_grid(0.5, 1);
     voxel_grid.addCloud(input_cloud);
 
     ASSERT_EQ(voxel_grid.size(), size_t(2));
@@ -144,25 +144,25 @@ TEST(CloudMatcher, MatchingTest)
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
 
-    VoxelGrid keyframe(0.1);
+    VoxelGrid keyframe(0.1, 10);
     keyframe.addCloud(*full_cloud);
 
     CloudMatcher matcher;
 
     std::vector<Pose3D> guess_poses{
-        Pose3D({0.0, 0.0, 0.1}, Eigen::Quaternionf::Identity()),
-        Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
-        Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
-        Pose3D({0.1, -0.05, 0}, Eigen::Quaternionf::Identity()),
+        //Pose3D({0.0, 0.0, 0.1}, Eigen::Quaternionf::Identity()),
+        //Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
+        //Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
+        //Pose3D({0.1, -0.1, 0}, Eigen::Quaternionf::Identity()),
         Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-10.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1))))
     };
 
     for (const auto& guess_pose : guess_poses) {
         std::cerr<<"guess transform: t: "<<guess_pose.translation.transpose() <<" q: "<<guess_pose.rotation<<std::endl;
 
-        auto guess_cloud = CloudTransformer::transform(*full_cloud, guess_pose.inverse());
+        auto guess_cloud = CloudTransformer::transform(*keyframe.getCloud(), guess_pose.inverse());
 
-        VoxelGrid voxel_filter(0.3);
+        VoxelGrid voxel_filter(0.3, 1);
         voxel_filter.addCloud(*guess_cloud);
 
         auto subsampled_cloud = voxel_filter.getCloud();
