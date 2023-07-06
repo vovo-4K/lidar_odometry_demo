@@ -38,7 +38,7 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
     auto deskewed_cloud = CloudTransformer::transformNonRigid(*time_normalized, Pose3D(), Pose3D());
 
     // match with keyframe
-    VoxelGrid scan_downsampler(0.5);
+    VoxelGrid scan_downsampler(1);
     scan_downsampler.addCloud(*deskewed_cloud);
     auto deskewed_voxelized = scan_downsampler.getCloud();
 

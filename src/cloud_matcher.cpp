@@ -8,8 +8,8 @@
 Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
                            const Pose3D &position_guess) {
 
-    const int max_iter = 50;
-    const float max_correspondence_distance = 0.2;
+    const int max_iter = 30;
+    const float max_correspondence_distance = 1.0;
 
     Pose3D current_pose = position_guess;
 
@@ -53,20 +53,21 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
         dRdqz = 2.0 * dRdqz;
 
         //quaternion derivative wrt quaternion parametrization
-        double a = (1.0 - q3) / (q3 + 1.0); a = a*a + 1;
-        double a_mult = -4.0/(a*a);
+        double a_square = (1.0 - q3) / (q3 + 1.0);
+        double a_square_plus_one = a_square + 1;
+        double a_mult = -4.0/(a_square_plus_one * a_square_plus_one);
 
         double x = q0 / (1.0 + q3);
         double y = q1 / (1.0 + q3);
         double z = q2 / (1.0 + q3);
 
-        Eigen::Vector4d dqdx(x*x - 0.5*a, x*y, x*z, x);
+        Eigen::Vector4d dqdx(x*x - 0.5*a_square_plus_one, x*y, x*z, x);
         dqdx *= a_mult;
 
-        Eigen::Vector4d dqdy(y*x, y*y - 0.5*a, y*z, y);
+        Eigen::Vector4d dqdy(y*x, y*y - 0.5*a_square_plus_one, y*z, y);
         dqdy *= a_mult;
 
-        Eigen::Vector4d dqdz(z*x, z*y, z*z - 0.5*a, z);
+        Eigen::Vector4d dqdz(z*x, z*y, z*z - 0.5*a_square_plus_one, z);
         dqdz *= a_mult;
 
         // chain rule
@@ -85,7 +86,7 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
             Jacobian(row, 4) = 2.0 * (dRdy*corr.source_point_local).dot(e);
             Jacobian(row, 5) = 2.0 * (dRdz*corr.source_point_local).dot(e);
 
-            const double delta = 0.06;
+            const double delta = 0.1;
             if (matching_pairs.at(row).range_sq < delta * delta) {
                 weights(row) = matching_pairs.at(row).range_sq;
             } else {
@@ -97,12 +98,9 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
         auto A = Jacobian.transpose() * diag_weights * Jacobian;
         auto b = Jacobian.transpose() * diag_weights * error_vector;
 
-        Eigen::MatrixXd A_diag = A.diagonal().asDiagonal()*0.1;
-        Eigen::MatrixXd S = A + A_diag;
+        Eigen::Matrix<double, 6, 1> delta = A.ldlt().solve(-b);
 
-        Eigen::Matrix<double, 6, 1> delta = S.ldlt().solve(-b);
-
-        std::cout<<delta.norm()<<std::endl;
+        //std::cout<<"error: "<<error_vector.sum()<<" delta: "<<delta.norm()<<std::endl;
 
         current_pose.translation += delta.block<3, 1>(0,0).cast<float>().transpose();
         // recover quaternion
@@ -112,11 +110,11 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
         double a_sq = x*x + y*y + z*z;
 
         current_pose.rotation = Eigen::Quaternionf(2.0 * x / (a_sq + 1.0),
-                2.0 * y / (a_sq + 1.0),
-                2.0 * z / (a_sq + 1.0),
-                (1.0 - a_sq) / (a_sq + 1.0));
+                                                   2.0 * y / (a_sq + 1.0),
+                                                   2.0 * z / (a_sq + 1.0),
+                                                   (1.0 - a_sq) / (a_sq + 1.0));
 
-        current_pose.rotation.normalize();
+        //current_pose.rotation.normalize();
         //check for convergence
     }
     return current_pose;
