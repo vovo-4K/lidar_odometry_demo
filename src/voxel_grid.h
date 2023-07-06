@@ -14,11 +14,13 @@
 #include "lidar_point_type.h"
 #include <tsl/robin_map.h>
 
+
 class VoxelGrid {
 public:
     struct Voxel
     {
-        Eigen::Vector3f point;
+        std::vector<Eigen::Vector3f> points;
+        //Eigen::Vector3f point;
     };
 
     struct Indices {
@@ -42,8 +44,10 @@ public:
     };
 
     VoxelGrid() = default;
-    explicit VoxelGrid(float voxel_size)
+
+    VoxelGrid(float voxel_size, size_t max_points)
     {
+        setMaxPoints(max_points);
         setVoxelSize(voxel_size);
     }
 
@@ -52,7 +56,10 @@ public:
         voxels_.clear();
 
         voxel_size_ = voxel_size;
-        max_range_  = 100.0;//(pow(2, 11) * voxel_size_) * 0.5;
+    }
+
+    void setMaxPoints(size_t max_points) {
+        max_points_ = max_points;
     }
 
     Indices getIndices(float x, float y, float z) const
@@ -74,10 +81,15 @@ public:
             }*/
             auto indices = getIndices(point.x, point.y, point.z);
 
-            if (!voxels_.contains(indices)) {
+            auto it = voxels_.find(indices);
+            if (it==voxels_.end()) {
                 Voxel voxel{};
-                voxel.point = {point.x, point.y, point.z};
+                voxel.points.emplace_back(point.x, point.y, point.z);
                 voxels_.insert({indices, voxel});
+            } else {
+                if (it->second.points.size()<max_points_) {
+                    it.value().points.emplace_back(point.x, point.y, point.z);
+                }
             }
         }
     }
@@ -85,13 +97,15 @@ public:
     pcl::PointCloud<pcl::PointXYZ>::Ptr getCloud() const
     {
         auto output_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-        output_cloud->points.reserve(voxels_.size());
+        output_cloud->points.reserve(voxels_.size()*max_points_);
         for (const auto& voxel : voxels_) {
-            pcl::PointXYZ output_point;
-            output_point.x = voxel.second.point.x();
-            output_point.y = voxel.second.point.y();
-            output_point.z = voxel.second.point.z();
-            output_cloud->points.push_back(output_point);
+            for (const auto &p : voxel.second.points) {
+                pcl::PointXYZ output_point;
+                output_point.x = p.x();
+                output_point.y = p.y();
+                output_point.z = p.z();
+                output_cloud->points.push_back(output_point);
+            }
         }
         return output_cloud;
     }
@@ -126,10 +140,12 @@ public:
                     auto it = voxels_.find(Indices{ix, iy, iz});
                     if (it!=voxels_.end()) {
                         const auto& voxel = it->second;
-                        auto dist_sq = (voxel.point.cast<double>() - point).squaredNorm();
-                        if (dist_sq < min_dist) {
-                            min_dist = dist_sq;
-                            best_match = voxel.point.cast<double>();
+                        for (const auto& p : voxel.points) {
+                            auto dist_sq = (p.cast<double>() - point).squaredNorm();
+                            if (dist_sq < min_dist) {
+                                min_dist = dist_sq;
+                                best_match = p.cast<double>();
+                            }
                         }
                     }
                 }
@@ -167,7 +183,17 @@ public:
         return output;
     }
 
-    void radiusCleanup(const lidar_point::PointXYZIRT& point, float radius);
+    void radiusCleanup(const Eigen::Vector3f& point, float radius)
+    {
+        auto radius_sq = radius * radius;
+        for (auto it = voxels_.begin(); it!=voxels_.end(); ) {
+            if ((it->second.points.front() - point).squaredNorm()>radius_sq) {
+                it = voxels_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
 
     size_t size() const
     {
@@ -175,7 +201,7 @@ public:
     }
 private:
     float voxel_size_;
-    float max_range_;
+    size_t max_points_;
     tsl::robin_map<Indices, Voxel, IndicesHash> voxels_;
 };
 
