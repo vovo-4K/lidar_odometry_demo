@@ -65,22 +65,92 @@ TEST(VoxelGrid, DuplicatePoints)
     ASSERT_FALSE(exactPointCmp(output_cloud->points.at(0), output_cloud->points.at(1)));
 }
 
+TEST(Pose3D, ComposeRelativeInverse)
+{
+    std::vector<std::tuple<Pose3D, Pose3D>> test_data{
+        {
+            Pose3D({0,0,0}, {1,0,0,0}),
+            Pose3D({0,0,0}, {1,0,0,0})
+        },
+        {
+            Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f(0, 0, 1))}),
+            Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f(0, 0, 1))})
+        },
+        {
+            Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1))}),
+            Pose3D({1,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(std::numbers::pi * 0.5, Eigen::Vector3f(0, 0, 1))})
+        },
+        {
+            Pose3D({1,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1))}),
+            Pose3D({1,1,1}, Eigen::Quaternionf{Eigen::AngleAxisf(-std::numbers::pi, Eigen::Vector3f(0, 0, 1))})
+        },
+        {
+            Pose3D({100,100,100}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1).normalized())}),
+            Pose3D({150,150,150}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1).normalized())})
+        },
+        {
+            Pose3D({100,100,100}, Eigen::Quaternionf{Eigen::AngleAxisf(0.1, Eigen::Vector3f(0, 0, 1).normalized())}),
+            Pose3D({150,150,150}, Eigen::Quaternionf{Eigen::AngleAxisf(-0.2, Eigen::Vector3f(0, 0, 1).normalized())})
+        },
+        {
+            Pose3D({1,0.5,-0.5}, Eigen::Quaternionf{Eigen::AngleAxisf(0.456, Eigen::Vector3f(0.1, 0.2, 1).normalized())}),
+            Pose3D({-1,-0.6,0}, Eigen::Quaternionf{Eigen::AngleAxisf(-0.245, Eigen::Vector3f(-0.2, 0, 0).normalized())})
+        },
+    };
+
+    for (const auto& test_case : test_data) {
+        const auto& pose1 = std::get<0>(test_case);
+        const auto& pose2 = std::get<1>(test_case);
+
+        auto result_compose = pose1.compose(pose2);
+        auto result_relative = pose1.relativeTo(pose2);
+
+        auto result_inverse1 = pose1.inverse();
+        auto result_inverse2 = pose2.inverse();
+
+        Eigen::Isometry3f eigen_transform1 = Eigen::Isometry3f::Identity();
+        eigen_transform1.translate(pose1.translation);
+        eigen_transform1.rotate(pose1.rotation);
+
+        Eigen::Isometry3f eigen_transform2 =  Eigen::Isometry3f::Identity();
+        eigen_transform2.translate(pose2.translation);
+        eigen_transform2.rotate(pose2.rotation);
+
+        auto eigen_compose = eigen_transform1*eigen_transform2;
+        auto eigen_relative = eigen_transform1.inverse() * eigen_transform2;
+
+        auto eigen_inverse1 = eigen_transform1.inverse();
+        auto eigen_inverse2 = eigen_transform2.inverse();
+
+        std::cout<<pose1.translation.transpose()<<"|"<<pose2.translation.transpose()
+        <<"|"<<result_relative.translation.transpose()<<"|"<<eigen_relative.translation().transpose()<<std::endl;
+
+        ASSERT_LT((eigen_compose.translation() - result_compose.translation).norm(), 1e-6);
+        ASSERT_FLOAT_EQ(fabs(result_compose.rotation.dot(Eigen::Quaternionf(eigen_compose.rotation()))), 1.0);
+
+        ASSERT_LT((eigen_relative.translation() - result_relative.translation).norm(), 1e-4);
+        ASSERT_FLOAT_EQ(fabs(result_relative.rotation.dot(Eigen::Quaternionf(eigen_relative.rotation()))), 1.0);
+
+        ASSERT_LT((eigen_inverse1.translation() - result_inverse1.translation).norm(), 1e-4);
+        ASSERT_FLOAT_EQ(fabs(result_inverse1.rotation.dot(Eigen::Quaternionf(eigen_inverse1.rotation()))), 1.0);
+
+        ASSERT_LT((eigen_inverse2.translation() - result_inverse2.translation).norm(), 1e-4);
+        ASSERT_FLOAT_EQ(fabs(result_inverse2.rotation.dot(Eigen::Quaternionf(eigen_inverse2.rotation()))), 1.0);
+    }
+}
+
 TEST(CloudMatcher, MatchingTest)
 {
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
 
-    VoxelGrid keyframe(0.2);
+    VoxelGrid keyframe(0.1);
     keyframe.addCloud(*full_cloud);
 
-    VoxelGrid voxel_filter(1.0);
-    voxel_filter.addCloud(*full_cloud);
-
-    auto subsampled_cloud = voxel_filter.getCloud();
     CloudMatcher matcher;
 
     std::vector<Pose3D> guess_poses{
-        Pose3D({0.0, 0.0, 0.2}, Eigen::Quaternionf::Identity()),
+        Pose3D({0.0, 0.0, 0.1}, Eigen::Quaternionf::Identity()),
         Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
         Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
         Pose3D({0.1, -0.05, 0}, Eigen::Quaternionf::Identity()),
@@ -89,8 +159,15 @@ TEST(CloudMatcher, MatchingTest)
 
     for (const auto& guess_pose : guess_poses) {
         std::cerr<<"guess transform: t: "<<guess_pose.translation.transpose() <<" q: "<<guess_pose.rotation<<std::endl;
-        auto guess_cloud = CloudTransformer::transform(*subsampled_cloud, guess_pose.inverse());
-        auto final_transform = matcher.align(keyframe, *guess_cloud, Pose3D());
+
+        auto guess_cloud = CloudTransformer::transform(*full_cloud, guess_pose.inverse());
+
+        VoxelGrid voxel_filter(0.3);
+        voxel_filter.addCloud(*guess_cloud);
+
+        auto subsampled_cloud = voxel_filter.getCloud();
+
+        auto final_transform = matcher.align(keyframe, *subsampled_cloud, Pose3D());
 
         std::cout<<final_transform.translation.transpose()<<std::endl;
 
