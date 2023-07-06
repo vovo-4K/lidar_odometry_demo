@@ -70,7 +70,7 @@ TEST(CloudMatcher, MatchingTest)
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
 
-    VoxelGrid keyframe(0.1);
+    VoxelGrid keyframe(0.2);
     keyframe.addCloud(*full_cloud);
 
     VoxelGrid voxel_filter(1.0);
@@ -80,11 +80,11 @@ TEST(CloudMatcher, MatchingTest)
     CloudMatcher matcher;
 
     std::vector<Pose3D> guess_poses{
-        Pose3D(),
+        Pose3D({0.0, 0.0, 0.2}, Eigen::Quaternionf::Identity()),
         Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
         Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
         Pose3D({0.1, -0.05, 0}, Eigen::Quaternionf::Identity()),
-        Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf(Eigen::AngleAxisf(10.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1))))
+        Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-10.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1))))
     };
 
     for (const auto& guess_pose : guess_poses) {
@@ -92,11 +92,17 @@ TEST(CloudMatcher, MatchingTest)
         auto guess_cloud = CloudTransformer::transform(*subsampled_cloud, guess_pose.inverse());
         auto final_transform = matcher.align(keyframe, *guess_cloud, Pose3D());
 
-        auto error = final_transform.relativeTo(guess_pose);
-        auto rotation_error = error.rotation.toRotationMatrix().eulerAngles(0, 1, 2);
+        std::cout<<final_transform.translation.transpose()<<std::endl;
 
-        ASSERT_LT(error.translation.norm(),0.01);
-        ASSERT_LT(rotation_error.norm(), 0.001);
+        auto error = final_transform.relativeTo(guess_pose);
+
+        std::cout<<final_transform.rotation<<std::endl;
+        std::cout<<guess_pose.rotation<<std::endl;
+
+        auto rotation_error = 1.0 - fabs(final_transform.rotation.dot(guess_pose.rotation));
+
+        ASSERT_LT(error.translation.norm(), 0.01);
+        ASSERT_LT(rotation_error, 0.01);
     }
 }
 

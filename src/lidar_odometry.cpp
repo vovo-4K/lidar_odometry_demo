@@ -35,15 +35,15 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
     auto relative_transform = previous_transform_.relativeTo(current_transform_);
     previous_transform_ = current_transform_;
 
-    auto deskewed_cloud = CloudTransformer::transformNonRigid(*time_normalized, Pose3D(), relative_transform);
+    auto deskewed_cloud = CloudTransformer::transformNonRigid(*time_normalized, Pose3D(), Pose3D());
 
     // match with keyframe
-    VoxelGrid scan_downsampler(1.0);
+    VoxelGrid scan_downsampler(0.5);
     scan_downsampler.addCloud(*deskewed_cloud);
     auto deskewed_voxelized = scan_downsampler.getCloud();
 
     CloudMatcher matcher;
-    current_transform_ = matcher.align(keyframe_grid_, *deskewed_voxelized, current_transform_.compose(relative_transform));
+    current_transform_ = matcher.align(keyframe_grid_, *deskewed_voxelized, current_transform_);
 
     // update keyframe
     auto deskewed_full_cloud_transformed = CloudTransformer::transform(*deskewed_cloud, current_transform_);
