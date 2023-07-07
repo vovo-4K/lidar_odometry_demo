@@ -4,6 +4,7 @@
 //#define PCL_NO_PRECOMPILE
 
 #include "lidar_odometry.h"
+#include "utils/cloud_classifier.h"
 #include "utils/cloud_transform.h"
 #include "utils/point_time_normalize.h"
 #include "utils/range_filter.h"
@@ -18,12 +19,19 @@ LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(conf
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
+
+    //TODO: normalize time and deskew at first
+
     // pre filter cloud
     auto filtered_cloud = utils::rangeFilter(input_cloud, config_.lidar_min_range, config_.lidar_max_range);
+
+    auto [planar, unclassified] = CloudClassifier::classify(*filtered_cloud);
+    temp_cloud_ = planar;
 
     // init keyframe
     if (keyframe_grid_.size() == 0) {
         auto initial_cloud = CloudTransformer::transformNonRigid(*filtered_cloud, Pose3D(), Pose3D());
+        // TODO: voxelize
         keyframe_grid_.addCloud(*initial_cloud);
         return;
     }

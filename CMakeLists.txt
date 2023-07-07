@@ -25,6 +25,7 @@ add_executable(lidar_odometry_node
         src/cloud_matcher.cpp
         src/lidar_odometry_node.cpp
         src/lidar_odometry.cpp
+        src/utils/cloud_classifier.h
         src/utils/point_time_normalize.h
         src/utils/range_filter.h
         src/voxel_grid.h

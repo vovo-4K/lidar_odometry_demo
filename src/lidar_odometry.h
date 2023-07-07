@@ -54,7 +54,13 @@ public:
     pcl::PointCloud<pcl::PointXYZ>::Ptr getKeyFrameCloud() const;
 
     Pose3D getCurrentPose() const;
+
+    auto getTempCloud() const {
+        return temp_cloud_;
+    }
 private:
+    pcl::PointCloud<lidar_point::PointXYZIRT>::Ptr temp_cloud_;
+
     const Params config_;
 
     VoxelGrid keyframe_grid_;
