@@ -15,13 +15,58 @@
 #include <tsl/robin_map.h>
 
 
+template<unsigned int MaxPoints>
+struct VoxelWithPoints
+{
+    std::vector<Eigen::Vector3f> points;
+
+    void addPoint(float x, float y, float z)
+    {
+        if (points.size() < MaxPoints) {
+            points.emplace_back(x, y, z);
+        }
+    }
+
+    size_t getMaxPoints() const
+    {
+        return MaxPoints;
+    }
+
+    struct Correspondence
+    {
+        Eigen::Vector3d source_point;
+        Eigen::Vector3d target_point;
+        Eigen::Vector3d source_point_local;
+        double range_sq;
+
+        Correspondence() = default;
+        Correspondence(Eigen::Vector3d source_point, Eigen::Vector3d target_point, double range_sq)
+                : source_point(std::move(source_point)),
+                  target_point(std::move(target_point)),
+                  range_sq(range_sq)
+        {}
+    };
+
+    Correspondence getCorrespondence(const Eigen::Vector3d &query) const
+    {
+        double min_range_sq = std::numeric_limits<double>::max();
+        Eigen::Vector3d target{};
+
+        for (const Eigen::Vector3f& point : points) {
+            double range_sq = (point.cast<double>() - query).squaredNorm();
+            if (range_sq < min_range_sq) {
+                target = point.cast<double>();
+                min_range_sq = range_sq;
+            }
+        }
+
+        return Correspondence(query, target, min_range_sq);
+    }
+};
+
+template <typename VoxelType>
 class VoxelGrid {
 public:
-    struct Voxel
-    {
-        std::vector<Eigen::Vector3f> points;
-        //Eigen::Vector3f point;
-    };
 
     struct Indices {
         int64_t ix;
@@ -42,6 +87,8 @@ public:
             return ((1<<22)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
         }
     };
+
+    using Correspondence = typename VoxelType::Correspondence;
 
     VoxelGrid() = default;
 
@@ -83,13 +130,11 @@ public:
 
             auto it = voxels_.find(indices);
             if (it==voxels_.end()) {
-                Voxel voxel{};
-                voxel.points.emplace_back(point.x, point.y, point.z);
+                VoxelType voxel{};
+                voxel.addPoint(point.x, point.y, point.z);
                 voxels_.insert({indices, voxel});
             } else {
-                if (it->second.points.size()<max_points_) {
-                    it.value().points.emplace_back(point.x, point.y, point.z);
-                }
+                it.value().addPoint(point.x, point.y, point.z);
             }
         }
     }
@@ -97,7 +142,7 @@ public:
     pcl::PointCloud<pcl::PointXYZ>::Ptr getCloud() const
     {
         auto output_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-        output_cloud->points.reserve(voxels_.size()*max_points_);
+        //output_cloud->points.reserve(voxels_.size());
         for (const auto& voxel : voxels_) {
             for (const auto &p : voxel.second.points) {
                 pcl::PointXYZ output_point;
@@ -110,49 +155,34 @@ public:
         return output_cloud;
     }
 
-    struct Correspondence
-    {
-        Eigen::Vector3d source_point_local;
-        Eigen::Vector3d source_point;
-        Eigen::Vector3d target_point;
-        double range_sq;
-
-        Correspondence() = default;
-        Correspondence(Eigen::Vector3d source_point_local, Eigen::Vector3d source_point, Eigen::Vector3d target_point, double range_sq)
-                : source_point_local(std::move(source_point_local)),
-                  source_point(std::move(source_point)),
-                  target_point(std::move(target_point)),
-                  range_sq(range_sq)
-        {}
-    };
-
-    double getNearestPoint(const Eigen::Vector3d& point, double max_correspondence_distance_sq, Eigen::Vector3d& best_match) const
+    Correspondence getCorrespondence(const Eigen::Vector3d& point, double max_correspondence_distance_sq) const
     {
         auto origin_idx = static_cast<int64_t>(point.x() / voxel_size_);
         auto origin_idy = static_cast<int64_t>(point.y() / voxel_size_);
         auto origin_idz = static_cast<int64_t>(point.z() / voxel_size_);
 
         double min_dist = max_correspondence_distance_sq;
+        Correspondence best_correspondence;
 
         for (auto ix = origin_idx - 1; ix <= origin_idx + 1; ix++) {
             for (auto iy = origin_idy - 1;  iy <= origin_idy + 1; iy++) {
                 for (auto iz = origin_idz - 1; iz <= origin_idz + 1; iz++) {
                     auto it = voxels_.find(Indices{ix, iy, iz});
-                    if (it!=voxels_.end()) {
+                    if (it != voxels_.end()) {
                         const auto& voxel = it->second;
-                        for (const auto& p : voxel.points) {
-                            auto dist_sq = (p.cast<double>() - point).squaredNorm();
-                            if (dist_sq < min_dist) {
-                                min_dist = dist_sq;
-                                best_match = p.cast<double>();
-                            }
+
+                        auto correspondence = voxel.getCorrespondence(point);
+
+                        if (correspondence.range_sq < min_dist) {
+                            min_dist = correspondence.range_sq;
+                            best_correspondence = correspondence;
                         }
                     }
                 }
             }
         }
 
-        return min_dist;
+        return best_correspondence;
     }
 
     std::vector<Correspondence> findMatchingPairs(const pcl::PointCloud<pcl::PointXYZ>& cloud, const Pose3D& transform, float max_correspondence_distance) const
@@ -171,12 +201,13 @@ public:
                           Eigen::Vector3d source_point_local(point.x, point.y, point.z);
                           Eigen::Vector3d source_point_transformed = R * source_point_local + t;
 
-                          Eigen::Vector3d nearest_point;
-                          auto range_sq = getNearestPoint(source_point_transformed, max_distance_sq, nearest_point);
+                          auto correspondence = getCorrespondence(source_point_transformed, max_distance_sq);
+                          if (correspondence.range_sq < max_distance_sq) {
+                              //inject source points
+                              correspondence.source_point_local = source_point_local;
 
-                          if (range_sq < max_distance_sq) {
                               std::lock_guard lock(output_mutex);
-                              output.emplace_back(source_point_local, source_point_transformed, nearest_point, range_sq);
+                              output.emplace_back(correspondence);
                           }
                       });
 
@@ -202,7 +233,7 @@ public:
 private:
     float voxel_size_;
     size_t max_points_;
-    tsl::robin_map<Indices, Voxel, IndicesHash> voxels_;
+    tsl::robin_map<Indices, VoxelType, IndicesHash> voxels_;
 };
 
 

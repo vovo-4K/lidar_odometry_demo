@@ -14,6 +14,7 @@
 #include "lidar_point_type.h"
 #include "pose_3d.h"
 #include "voxel_grid.h"
+#include "keyframe.h"
 
 class LidarOdometry {
 public:
@@ -63,7 +64,8 @@ private:
 
     const Params config_;
 
-    VoxelGrid keyframe_grid_;
+    Keyframe keyframe_;
+    //VoxelGrid<VoxelWithPoints<20>> keyframe_grid_;
 
     Pose3D previous_transform_;
     Pose3D current_transform_;
