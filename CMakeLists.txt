@@ -23,6 +23,7 @@ include_directories(
 
 add_executable(lidar_odometry_node
         src/cloud_matcher.cpp
+        src/keyframe.h
         src/lidar_odometry_node.cpp
         src/lidar_odometry.cpp
         src/utils/point_time_normalize.h
@@ -51,6 +52,7 @@ if(BUILD_TESTING)
           test/test.cpp
           src/cloud_matcher.cpp
           src/voxel_grid.h
+          src/keyframe.h
           )
 
   target_compile_features(${PROJECT_NAME}_test PUBLIC cxx_std_23)

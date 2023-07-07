@@ -5,7 +5,7 @@
 #include "cloud_matcher.h"
 #include "utils/cloud_transform.h"
 
-Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
+Pose3D CloudMatcher::align(const Keyframe &keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
                            const Pose3D &position_guess) {
 
     const int max_iter = 30;
@@ -15,12 +15,12 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
 
     for (size_t i = 0; i < max_iter; i++) {
         //get correspondences
-        auto matching_pairs = keyframe.findMatchingPairs(cloud, current_pose, max_correspondence_distance);
+        auto [planar_matching_pairs, unclassified_matching_pairs] = keyframe.findMatchingPairs(pcl::PointCloud<pcl::PointXYZ>(), cloud, current_pose, max_correspondence_distance);
 
         //solve
-        Eigen::MatrixXd Jacobian(matching_pairs.size(), 6);
-        Eigen::MatrixXd error_vector(matching_pairs.size(), 1);
-        Eigen::VectorXd weights(matching_pairs.size());
+        Eigen::MatrixXd Jacobian(unclassified_matching_pairs.size(), 6);
+        Eigen::MatrixXd error_vector(unclassified_matching_pairs.size(), 1);
+        Eigen::VectorXd weights(unclassified_matching_pairs.size());
 
         double q0 = current_pose.rotation.w();
         double q1 = current_pose.rotation.x();
@@ -75,8 +75,8 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
         Eigen::Matrix3d dRdy = dRdqw*dqdy(0) + dRdqx*dqdy(1) + dRdqy*dqdy(2) + dRdqz*dqdy(3);
         Eigen::Matrix3d dRdz = dRdqw*dqdz(0) + dRdqx*dqdz(1) + dRdqy*dqdz(2) + dRdqz*dqdz(3);
 
-        for (size_t row = 0; row<matching_pairs.size(); row++) {
-            const auto& corr = matching_pairs.at(row);
+        for (size_t row = 0; row<unclassified_matching_pairs.size(); row++) {
+            const auto& corr = unclassified_matching_pairs.at(row);
             Eigen::Vector3d e = corr.source_point - corr.target_point;
 
             error_vector(row) = e.squaredNorm();
@@ -87,10 +87,10 @@ Pose3D CloudMatcher::align(const VoxelGrid &keyframe, const pcl::PointCloud<pcl:
             Jacobian(row, 5) = 2.0 * (dRdz*corr.source_point_local).dot(e);
 
             const double delta = 0.06;
-            if (matching_pairs.at(row).range_sq < delta * delta) {
-                weights(row) = matching_pairs.at(row).range_sq;
+            if (unclassified_matching_pairs.at(row).range_sq < delta * delta) {
+                weights(row) = unclassified_matching_pairs.at(row).range_sq;
             } else {
-                weights(row) = delta * (sqrt(matching_pairs.at(row).range_sq) - 0.5 * delta);
+                weights(row) = delta * (sqrt(unclassified_matching_pairs.at(row).range_sq) - 0.5 * delta);
             }
             //weights(row) = 1.0;
         }
