@@ -49,9 +49,9 @@ public:
             unclassified_points_cloud->points.reserve(organized_cloud->size());
 
             const auto &cloud = organized_cloud->points;
-            const int window_size = 5;
+            const int window_size = 4;
             for (int i=window_size; i<cloud.size()-window_size; i++) {
-                float range = sqrt(powf(cloud.at(i).x, 2) + powf(cloud.at(i).y, 2) + powf(cloud.at(i).z, 2));
+                float range = powf(cloud.at(i).x, 2) + powf(cloud.at(i).y, 2) + powf(cloud.at(i).z, 2);
                 if (range<0.1) continue;
 
                 float dx = -cloud.at(i).x*(window_size*2.0 + 1.0);
@@ -65,10 +65,14 @@ public:
                 }
 
                 float curvature = sqrt(dx*dx + dy*dy + dz*dz) / range;
-
                 auto output_point = cloud.at(i);
+                if (curvature<0.006) {
+                    planar_points_cloud->points.push_back(output_point);
+                } else {
+                    unclassified_points_cloud->points.push_back(output_point);
+                }
+
                 output_point.intensity = curvature;
-                planar_points_cloud->points.push_back(output_point);
             }
 
             return {planar_points_cloud, unclassified_points_cloud};
