@@ -14,6 +14,7 @@ find_package(tf2_ros REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Ceres REQUIRED)
 
 add_subdirectory(third-party/robin-map)
 
@@ -36,7 +37,7 @@ target_include_directories(lidar_odometry_node PUBLIC
   $<INSTALL_INTERFACE:include>)
 target_compile_features(lidar_odometry_node PUBLIC c_std_99 cxx_std_23)
 
-target_link_libraries(lidar_odometry_node ${PCL_LIBRARIES} tsl::robin_map)
+target_link_libraries(lidar_odometry_node ${PCL_LIBRARIES} tsl::robin_map Ceres::ceres)
 ament_target_dependencies(lidar_odometry_node rclcpp sensor_msgs tf2 tf2_ros pcl_conversions Eigen3)
 
 install(TARGETS lidar_odometry_node
@@ -69,7 +70,7 @@ if(BUILD_TESTING)
   ament_target_dependencies(${PROJECT_NAME}_test
           Eigen3
           )
-  target_link_libraries(${PROJECT_NAME}_test ${PCL_LIBRARIES} tsl::robin_map)
+  target_link_libraries(${PROJECT_NAME}_test ${PCL_LIBRARIES} tsl::robin_map Ceres::ceres)
 endif()
 
 ament_package()

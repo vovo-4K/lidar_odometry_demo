@@ -203,11 +203,11 @@ TEST(CloudMatcher, MatchingTest)
 
         auto final_transform = matcher.align(keyframe, *subsampled_cloud, pcl::PointCloud<pcl::PointXYZ>(), Pose3D());
 
-        //std::cout<<final_transform.translation.transpose()<<std::endl;
+        std::cout<<final_transform.translation.transpose()<<std::endl;
 
         auto error = final_transform.relativeTo(guess_pose);
 
-        //std::cout<<final_transform.rotation<<std::endl;
+        std::cout<<final_transform.rotation<<std::endl;
         //std::cout<<guess_pose.rotation<<std::endl;
 
         auto rotation_error = 1.0 - fabs(final_transform.rotation.dot(guess_pose.rotation));
