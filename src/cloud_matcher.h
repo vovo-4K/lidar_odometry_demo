@@ -12,7 +12,8 @@
 
 class CloudMatcher {
 public:
-    Pose3D align(const Keyframe& keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
+    Pose3D align(const Keyframe& keyframe, const pcl::PointCloud<pcl::PointXYZ> &planar_cloud,
+                 const pcl::PointCloud<pcl::PointXYZ> &unclassified_cloud,
                  const Pose3D& position_guess);
 };
 

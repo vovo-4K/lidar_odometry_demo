@@ -14,6 +14,8 @@
 #include "lidar_point_type.h"
 #include <tsl/robin_map.h>
 
+#include <pcl/io/pcd_io.h>
+
 template <typename VoxelType>
 class VoxelGrid {
 public:
@@ -94,6 +96,26 @@ public:
             }
         }
         return output_cloud;
+    }
+
+    void saveCloud() const
+    {
+        auto output_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZINormal>>();
+        for (const auto& voxel : voxels_) {
+            for (const auto &p : voxel.second.points) {
+                pcl::PointXYZINormal output_point;
+                output_point.x = p.x();
+                output_point.y = p.y();
+                output_point.z = p.z();
+                output_point.intensity = voxel.second.points.size();
+                output_point.normal_x = voxel.second.plane_normal(0);
+                output_point.normal_y = voxel.second.plane_normal(1);
+                output_point.normal_z = voxel.second.plane_normal(2);
+                output_cloud->points.push_back(output_point);
+            }
+        }
+        static int file_id = 0;
+        pcl::io::savePCDFileBinary("/home/vl/temp/cloud_"+std::to_string(file_id++)+".pcd", *output_cloud);
     }
 
     Correspondence getCorrespondence(const Eigen::Vector3d& point, double max_correspondence_distance_sq) const

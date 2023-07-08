@@ -121,8 +121,8 @@ TEST(Pose3D, ComposeRelativeInverse)
         auto eigen_inverse1 = eigen_transform1.inverse();
         auto eigen_inverse2 = eigen_transform2.inverse();
 
-        std::cout<<pose1.translation.transpose()<<"|"<<pose2.translation.transpose()
-                 <<"|"<<result_relative.translation.transpose()<<"|"<<eigen_relative.translation().transpose()<<std::endl;
+        //std::cout<<pose1.translation.transpose()<<"|"<<pose2.translation.transpose()
+        //         <<"|"<<result_relative.translation.transpose()<<"|"<<eigen_relative.translation().transpose()<<std::endl;
 
         ASSERT_LT((eigen_compose.translation() - result_compose.translation).norm(), 1e-6);
         ASSERT_FLOAT_EQ(fabs(result_compose.rotation.dot(Eigen::Quaternionf(eigen_compose.rotation()))), 1.0);
@@ -177,7 +177,7 @@ TEST(CloudMatcher, MatchingTest)
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
 
-    Keyframe keyframe(0.1, 0.1);
+    Keyframe keyframe(0.25, 0.1);
     keyframe.addClouds(*full_cloud, pcl::PointCloud<pcl::PointXYZ>());
 
     CloudMatcher matcher;
@@ -196,12 +196,12 @@ TEST(CloudMatcher, MatchingTest)
 
         auto guess_cloud = CloudTransformer::transform(*keyframe.getCloud(), guess_pose.inverse());
 
-        VoxelGrid<VoxelWithPoints<1>> voxel_filter(0.3, 1);
+        VoxelGrid<VoxelWithPoints<1>> voxel_filter(0.5, 1);
         voxel_filter.addCloud(*guess_cloud);
 
         auto subsampled_cloud = voxel_filter.getCloud();
 
-        auto final_transform = matcher.align(keyframe, *subsampled_cloud, Pose3D());
+        auto final_transform = matcher.align(keyframe, *subsampled_cloud, pcl::PointCloud<pcl::PointXYZ>(), Pose3D());
 
         //std::cout<<final_transform.translation.transpose()<<std::endl;
 

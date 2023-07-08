@@ -38,7 +38,7 @@ struct VoxelWithPoints
     Correspondence getCorrespondence(const Eigen::Vector3d &query) const
     {
         double min_range_sq = std::numeric_limits<double>::max();
-        Eigen::Vector3d target;
+        Eigen::Vector3d target(query);
 
         for (const Eigen::Vector3f& point : points) {
             double range_sq = (point.cast<double>() - query).squaredNorm();

@@ -5,23 +5,21 @@
 #include "cloud_matcher.h"
 #include "utils/cloud_transform.h"
 
-Pose3D CloudMatcher::align(const Keyframe &keyframe, const pcl::PointCloud<pcl::PointXYZ> &cloud,
-                           const Pose3D &position_guess) {
+Pose3D CloudMatcher::align(const Keyframe& keyframe, const pcl::PointCloud<pcl::PointXYZ> &planar_cloud,
+                           const pcl::PointCloud<pcl::PointXYZ> &unclassified_cloud,
+                           const Pose3D& position_guess) {
 
     const int max_iter = 30;
-    const float max_correspondence_distance = 1.0;
+    const float max_correspondence_distance = 0.3;
 
     Pose3D current_pose = position_guess;
 
     for (size_t i = 0; i < max_iter; i++) {
         //get correspondences
-        auto [planar_matching_pairs, unclassified_matching_pairs] = keyframe.findMatchingPairs(pcl::PointCloud<pcl::PointXYZ>(), cloud, current_pose, max_correspondence_distance);
+        auto [planar_matching_pairs, unclassified_matching_pairs] =
+                keyframe.findMatchingPairs(planar_cloud, unclassified_cloud,  current_pose, max_correspondence_distance);
 
-        //solve
-        Eigen::MatrixXd Jacobian(unclassified_matching_pairs.size(), 6);
-        Eigen::MatrixXd error_vector(unclassified_matching_pairs.size(), 1);
-        Eigen::VectorXd weights(unclassified_matching_pairs.size());
-
+        // Transformation Jacobian precompute
         double q0 = current_pose.rotation.w();
         double q1 = current_pose.rotation.x();
         double q2 = current_pose.rotation.y();
@@ -75,24 +73,56 @@ Pose3D CloudMatcher::align(const Keyframe &keyframe, const pcl::PointCloud<pcl::
         Eigen::Matrix3d dRdy = dRdqw*dqdy(0) + dRdqx*dqdy(1) + dRdqy*dqdy(2) + dRdqz*dqdy(3);
         Eigen::Matrix3d dRdz = dRdqw*dqdz(0) + dRdqx*dqdz(1) + dRdqy*dqdz(2) + dRdqz*dqdz(3);
 
-        for (size_t row = 0; row<unclassified_matching_pairs.size(); row++) {
+
+        //solve
+        auto total_errors_count = planar_matching_pairs.size() + unclassified_matching_pairs.size();
+
+        Eigen::MatrixXd Jacobian(total_errors_count, 6);
+        Eigen::MatrixXd error_vector(total_errors_count, 1);
+        Eigen::VectorXd weights(total_errors_count);
+
+        // Point2Plane
+        for (size_t row = 0; row < planar_matching_pairs.size(); row++) {
+            auto row_id = row;
+
+            const auto& corr = planar_matching_pairs.at(row);
+
+            error_vector(row_id) = (corr.source_point - corr.plane_origin).dot(corr.plane_normal);
+
+            Jacobian.block<1, 3>(row_id, 0) = corr.plane_normal;
+
+            Jacobian(row_id, 3) = (dRdx*corr.source_point_local).dot(corr.plane_normal);
+            Jacobian(row_id, 4) = (dRdy*corr.source_point_local).dot(corr.plane_normal);
+            Jacobian(row_id, 5) = (dRdz*corr.source_point_local).dot(corr.plane_normal);
+
+            const double delta = 0.05;
+            if (corr.range_sq < delta * delta) {
+                weights(row_id) = corr.range_sq;
+            } else {
+                weights(row_id) = delta * (sqrt(corr.range_sq) - 0.5 * delta);
+            }
+        }
+
+        // Point2Point
+        for (size_t row = 0; row < unclassified_matching_pairs.size(); row++) {
+            auto row_id = row + planar_matching_pairs.size();
+
             const auto& corr = unclassified_matching_pairs.at(row);
             Eigen::Vector3d e = corr.source_point - corr.target_point;
 
-            error_vector(row) = e.squaredNorm();
+            error_vector(row_id) = e.squaredNorm();
 
-            Jacobian.block<1, 3>(row, 0) = 2.0 * e;
-            Jacobian(row, 3) = 2.0 * (dRdx*corr.source_point_local).dot(e);
-            Jacobian(row, 4) = 2.0 * (dRdy*corr.source_point_local).dot(e);
-            Jacobian(row, 5) = 2.0 * (dRdz*corr.source_point_local).dot(e);
+            Jacobian.block<1, 3>(row_id, 0) = 2.0 * e;
+            Jacobian(row_id, 3) = 2.0 * (dRdx*corr.source_point_local).dot(e);
+            Jacobian(row_id, 4) = 2.0 * (dRdy*corr.source_point_local).dot(e);
+            Jacobian(row_id, 5) = 2.0 * (dRdz*corr.source_point_local).dot(e);
 
-            const double delta = 0.06;
-            if (unclassified_matching_pairs.at(row).range_sq < delta * delta) {
-                weights(row) = unclassified_matching_pairs.at(row).range_sq;
+            const double delta = 0.1;
+            if (corr.range_sq < delta * delta) {
+                weights(row_id) = corr.range_sq;
             } else {
-                weights(row) = delta * (sqrt(unclassified_matching_pairs.at(row).range_sq) - 0.5 * delta);
+                weights(row_id) = delta * (sqrt(corr.range_sq) - 0.5 * delta);
             }
-            //weights(row) = 1.0;
         }
 
         auto diag_weights = weights.asDiagonal();
@@ -101,7 +131,7 @@ Pose3D CloudMatcher::align(const Keyframe &keyframe, const pcl::PointCloud<pcl::
 
         Eigen::Matrix<double, 6, 1> delta = A.ldlt().solve(-b);
 
-        //std::cout<<"error: "<<error_vector.sum()<<" delta: "<<delta.norm()<<std::endl;
+        std::cout<<"error: "<<error_vector.sum()<<" delta: "<<delta.norm()<<std::endl;
 
         current_pose.translation += delta.block<3, 1>(0,0).cast<float>().transpose();
         // recover quaternion

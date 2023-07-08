@@ -12,8 +12,8 @@
 class Keyframe
 {
 public:
-    using PlanarVoxelGrid = VoxelGrid<VoxelWithPlanes<10>>;
-    using UnclassifiedVoxelGrid = VoxelGrid<VoxelWithPoints<10>>;
+    using PlanarVoxelGrid = VoxelGrid<VoxelWithPlanes<20>>;
+    using UnclassifiedVoxelGrid = VoxelGrid<VoxelWithPoints<20>>;
 
     Keyframe() = default;
 
@@ -47,7 +47,9 @@ public:
 
     [[nodiscard]] pcl::PointCloud<pcl::PointXYZ>::Ptr getCloud() const
     {
-        return unclassified_grid_.getCloud();
+        //planar_grid_.saveCloud();
+        // TODO: colorize for debug
+        return planar_grid_.getCloud();
     }
 
     [[nodiscard]] std::pair<std::vector<PlanarVoxelGrid::Correspondence>,

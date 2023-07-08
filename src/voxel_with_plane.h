@@ -17,27 +17,29 @@ struct VoxelWithPlanes
     Eigen::Vector3f plane_origin;
 
     size_t points_count = 0;
-    //const size_t MinPointsToCalcNormal = 4;
+
+    std::vector<Eigen::Vector3f> points;
 
     void addPoint(float x, float y, float z)
     {
         if (points_count < MaxPoints) {
             if (points_count == 0) {
-                plane_origin = Eigen::Vector3f(x, y, z);
                 points_mat = Eigen::MatrixXf(MaxPoints, 3);
             }
 
             points_mat.row(points_count) = Eigen::Vector3f(x, y, z);
+            points.emplace_back(x, y, z);
+
             points_count++;
 
-            if (points_count>=3) {
+            if (points_count >= 5) {
                 // update plane
-                //const auto actual_points_mat = points_mat.block(0, 0, points_count, 3);
+                const auto actual_points_mat = points_mat.block(0, 0, points_count, 3);
 
-                plane_origin = points_mat.block(0, 0, points_count, 3).colwise().sum() / points_count;
+                plane_origin = actual_points_mat.colwise().sum() / points_count;
 
                 Eigen::JacobiSVD<Eigen::MatrixXf> svd;
-                svd.compute(points_mat.block(0, 0, points_count, 3), Eigen::ComputeThinV);
+                svd.compute(actual_points_mat, Eigen::ComputeThinV);
 
                 plane_normal = svd.matrixV().block<1, 3>(2,0);
             }
@@ -67,7 +69,7 @@ struct VoxelWithPlanes
     {
         double min_range_sq = std::numeric_limits<double>::max();
 
-        if (points_count >= 3) {
+        if (points_count >= 5) {
             min_range_sq = (query.cast<float>() - plane_origin).dot(plane_normal);
             min_range_sq *= min_range_sq;
         }
@@ -77,7 +79,7 @@ struct VoxelWithPlanes
 
     Eigen::Vector3f getOrigin() const
     {
-        return plane_origin;
+        return points.front();
     }
 };
 

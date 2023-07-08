@@ -60,7 +60,7 @@ public:
         return temp_cloud_;
     }
 private:
-    pcl::PointCloud<lidar_point::PointXYZIRT>::Ptr temp_cloud_;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud_;
 
     const Params config_;
 

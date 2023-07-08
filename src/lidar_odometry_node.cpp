@@ -48,12 +48,13 @@ protected:
         keyframe_publisher_->publish(keyframe_cloud_msg);
 
         auto deskewed_cloud_ptr = odometry_ptr_->getTempCloud();
-        sensor_msgs::msg::PointCloud2 deskewed_cloud_msg;
-        pcl::toROSMsg(*deskewed_cloud_ptr, deskewed_cloud_msg);
-        deskewed_cloud_msg.header.stamp = msg_ptr->header.stamp;
-        deskewed_cloud_msg.header.frame_id = "base_scan";
-        deskewed_publisher_->publish(deskewed_cloud_msg);
-
+        if (deskewed_cloud_ptr) {
+            sensor_msgs::msg::PointCloud2 deskewed_cloud_msg;
+            pcl::toROSMsg(*deskewed_cloud_ptr, deskewed_cloud_msg);
+            deskewed_cloud_msg.header.stamp = msg_ptr->header.stamp;
+            deskewed_cloud_msg.header.frame_id = "odom";
+            deskewed_publisher_->publish(deskewed_cloud_msg);
+        }
         auto pose = odometry_ptr_->getCurrentPose();
         geometry_msgs::msg::TransformStamped t;
         t.header.stamp = msg_ptr->header.stamp;
