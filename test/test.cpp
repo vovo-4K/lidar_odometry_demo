@@ -3,7 +3,6 @@
 #include <numbers>
 
 #include "../src/cloud_matcher.h"
-#include "../src/voxel_grid.h"
 #include "../src/utils/cloud_transform.h"
 
 
@@ -68,34 +67,34 @@ TEST(VoxelGrid, DuplicatePoints)
 TEST(Pose3D, ComposeRelativeInverse)
 {
     std::vector<std::tuple<Pose3D, Pose3D>> test_data{
-        {
-            Pose3D({0,0,0}, {1,0,0,0}),
-            Pose3D({0,0,0}, {1,0,0,0})
-        },
-        {
-            Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f(0, 0, 1))}),
-            Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f(0, 0, 1))})
-        },
-        {
-            Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1))}),
-            Pose3D({1,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(std::numbers::pi * 0.5, Eigen::Vector3f(0, 0, 1))})
-        },
-        {
-            Pose3D({1,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1))}),
-            Pose3D({1,1,1}, Eigen::Quaternionf{Eigen::AngleAxisf(-std::numbers::pi, Eigen::Vector3f(0, 0, 1))})
-        },
-        {
-            Pose3D({100,100,100}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1).normalized())}),
-            Pose3D({150,150,150}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1).normalized())})
-        },
-        {
-            Pose3D({100,100,100}, Eigen::Quaternionf{Eigen::AngleAxisf(0.1, Eigen::Vector3f(0, 0, 1).normalized())}),
-            Pose3D({150,150,150}, Eigen::Quaternionf{Eigen::AngleAxisf(-0.2, Eigen::Vector3f(0, 0, 1).normalized())})
-        },
-        {
-            Pose3D({1,0.5,-0.5}, Eigen::Quaternionf{Eigen::AngleAxisf(0.456, Eigen::Vector3f(0.1, 0.2, 1).normalized())}),
-            Pose3D({-1,-0.6,0}, Eigen::Quaternionf{Eigen::AngleAxisf(-0.245, Eigen::Vector3f(-0.2, 0, 0).normalized())})
-        },
+            {
+                    Pose3D({0,0,0}, {1,0,0,0}),
+                    Pose3D({0,0,0}, {1,0,0,0})
+            },
+            {
+                    Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f(0, 0, 1))}),
+                    Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.2, Eigen::Vector3f(0, 0, 1))})
+            },
+            {
+                    Pose3D({0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1))}),
+                    Pose3D({1,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(std::numbers::pi * 0.5, Eigen::Vector3f(0, 0, 1))})
+            },
+            {
+                    Pose3D({1,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1))}),
+                    Pose3D({1,1,1}, Eigen::Quaternionf{Eigen::AngleAxisf(-std::numbers::pi, Eigen::Vector3f(0, 0, 1))})
+            },
+            {
+                    Pose3D({100,100,100}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1).normalized())}),
+                    Pose3D({150,150,150}, Eigen::Quaternionf{Eigen::AngleAxisf(0, Eigen::Vector3f(0, 0, 1).normalized())})
+            },
+            {
+                    Pose3D({100,100,100}, Eigen::Quaternionf{Eigen::AngleAxisf(0.1, Eigen::Vector3f(0, 0, 1).normalized())}),
+                    Pose3D({150,150,150}, Eigen::Quaternionf{Eigen::AngleAxisf(-0.2, Eigen::Vector3f(0, 0, 1).normalized())})
+            },
+            {
+                    Pose3D({1,0.5,-0.5}, Eigen::Quaternionf{Eigen::AngleAxisf(0.456, Eigen::Vector3f(0.1, 0.2, 1).normalized())}),
+                    Pose3D({-1,-0.6,0}, Eigen::Quaternionf{Eigen::AngleAxisf(-0.245, Eigen::Vector3f(-0.2, 0, 0).normalized())})
+            },
     };
 
     for (const auto& test_case : test_data) {
@@ -123,7 +122,7 @@ TEST(Pose3D, ComposeRelativeInverse)
         auto eigen_inverse2 = eigen_transform2.inverse();
 
         std::cout<<pose1.translation.transpose()<<"|"<<pose2.translation.transpose()
-        <<"|"<<result_relative.translation.transpose()<<"|"<<eigen_relative.translation().transpose()<<std::endl;
+                 <<"|"<<result_relative.translation.transpose()<<"|"<<eigen_relative.translation().transpose()<<std::endl;
 
         ASSERT_LT((eigen_compose.translation() - result_compose.translation).norm(), 1e-6);
         ASSERT_FLOAT_EQ(fabs(result_compose.rotation.dot(Eigen::Quaternionf(eigen_compose.rotation()))), 1.0);
@@ -139,23 +138,57 @@ TEST(Pose3D, ComposeRelativeInverse)
     }
 }
 
+TEST(VoxelWithPlanes, PlaneParameters)
+{
+    using PlaneParams = std::pair<Eigen::Vector3f, Eigen::Vector3f>; // origin, normal
+    using PlanePoints = std::vector<Eigen::Vector3f>;
+
+    std::vector<std::pair<PlanePoints, PlaneParams>> test_cases =
+            {
+                    // z perpendicular
+                   {{{0,0,0}, {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}},
+                     {{0,0,0}, {0,0,1}}},
+                    // x perpendicular
+                    {{{0,20,0}, {0,30,0}, {0,10,0}, {0,20,-50}, {0,20,50}},
+                     {{0,20,0}, {1,0,0}}},
+                    // y perpendicular
+                    {{{5,0,0}, {4,0,0}, {6,0,0}, {5,0,-1}, {5,0,1}},
+                     {{5,0,0}, {0,-1,0}}},
+
+            };
+
+    for (const auto &test_case : test_cases) {
+        VoxelWithPlanes<5> voxel;
+        for (const auto &point : test_case.first) {
+            voxel.addPoint(point(0), point(1), point(2));
+        }
+
+        auto origin_error = (voxel.plane_origin - test_case.second.first).norm();
+        auto normal_error = std::abs(voxel.plane_normal.dot(test_case.second.second));
+
+        ASSERT_LT(origin_error, 0.01);
+        ASSERT_GE(normal_error, 0.99);
+    }
+
+}
+
 TEST(CloudMatcher, MatchingTest)
 {
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
 
-    Keyframe keyframe(0.1, 10);
-    keyframe.addClouds(pcl::PointCloud<pcl::PointXYZ>(), *full_cloud);
+    Keyframe keyframe(0.1, 0.1);
+    keyframe.addClouds(*full_cloud, pcl::PointCloud<pcl::PointXYZ>());
 
     CloudMatcher matcher;
 
     std::vector<Pose3D> guess_poses{
-        Pose3D({0.0, 0.0, 0.1}, Eigen::Quaternionf::Identity()),
-        Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
-        Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
-        Pose3D({0.1, -0.1, 0}, Eigen::Quaternionf::Identity()),
-        Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-10.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
-        Pose3D({-0.2, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(12.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
+            Pose3D({0.0, 0.0, 0.1}, Eigen::Quaternionf::Identity()),
+            Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
+            Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
+            Pose3D({0.1, -0.1, 0}, Eigen::Quaternionf::Identity()),
+            Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-10.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
+            Pose3D({-0.2, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(12.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
     };
 
     for (const auto& guess_pose : guess_poses) {
@@ -170,12 +203,12 @@ TEST(CloudMatcher, MatchingTest)
 
         auto final_transform = matcher.align(keyframe, *subsampled_cloud, Pose3D());
 
-        std::cout<<final_transform.translation.transpose()<<std::endl;
+        //std::cout<<final_transform.translation.transpose()<<std::endl;
 
         auto error = final_transform.relativeTo(guess_pose);
 
-        std::cout<<final_transform.rotation<<std::endl;
-        std::cout<<guess_pose.rotation<<std::endl;
+        //std::cout<<final_transform.rotation<<std::endl;
+        //std::cout<<guess_pose.rotation<<std::endl;
 
         auto rotation_error = 1.0 - fabs(final_transform.rotation.dot(guess_pose.rotation));
 

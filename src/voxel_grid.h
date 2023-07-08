@@ -14,56 +14,6 @@
 #include "lidar_point_type.h"
 #include <tsl/robin_map.h>
 
-
-template<unsigned int MaxPoints>
-struct VoxelWithPoints
-{
-    std::vector<Eigen::Vector3f> points;
-
-    void addPoint(float x, float y, float z)
-    {
-        if (points.size() < MaxPoints) {
-            points.emplace_back(x, y, z);
-        }
-    }
-
-    size_t getMaxPoints() const
-    {
-        return MaxPoints;
-    }
-
-    struct Correspondence
-    {
-        Eigen::Vector3d source_point;
-        Eigen::Vector3d target_point;
-        Eigen::Vector3d source_point_local;
-        double range_sq;
-
-        Correspondence() = default;
-        Correspondence(Eigen::Vector3d source_point, Eigen::Vector3d target_point, double range_sq)
-                : source_point(std::move(source_point)),
-                  target_point(std::move(target_point)),
-                  range_sq(range_sq)
-        {}
-    };
-
-    Correspondence getCorrespondence(const Eigen::Vector3d &query) const
-    {
-        double min_range_sq = std::numeric_limits<double>::max();
-        Eigen::Vector3d target{};
-
-        for (const Eigen::Vector3f& point : points) {
-            double range_sq = (point.cast<double>() - query).squaredNorm();
-            if (range_sq < min_range_sq) {
-                target = point.cast<double>();
-                min_range_sq = range_sq;
-            }
-        }
-
-        return Correspondence(query, target, min_range_sq);
-    }
-};
-
 template <typename VoxelType>
 class VoxelGrid {
 public:
@@ -94,7 +44,7 @@ public:
 
     VoxelGrid(float voxel_size, size_t max_points)
     {
-        setMaxPoints(max_points);
+        //setMaxPoints(max_points);
         setVoxelSize(voxel_size);
     }
 
@@ -103,10 +53,6 @@ public:
         voxels_.clear();
 
         voxel_size_ = voxel_size;
-    }
-
-    void setMaxPoints(size_t max_points) {
-        max_points_ = max_points;
     }
 
     Indices getIndices(float x, float y, float z) const
@@ -121,11 +67,6 @@ public:
     void addCloud(const pcl::PointCloud<pcl::PointXYZ>& cloud)
     {
         for (const auto& point : cloud.points) {
-           /* if (point.x < -max_range_ || point.x > max_range_ ||
-                point.y < -max_range_ || point.y > max_range_ ||
-                point.z < -max_range_ || point.z > max_range_) {
-                continue;
-            }*/
             auto indices = getIndices(point.x, point.y, point.z);
 
             auto it = voxels_.find(indices);
@@ -218,7 +159,7 @@ public:
     {
         auto radius_sq = radius * radius;
         for (auto it = voxels_.begin(); it!=voxels_.end(); ) {
-            if ((it->second.points.front() - point).squaredNorm()>radius_sq) {
+            if ((it->second.getOrigin() - point).squaredNorm()>radius_sq) {
                 it = voxels_.erase(it);
             } else {
                 ++it;
@@ -232,7 +173,7 @@ public:
     }
 private:
     float voxel_size_;
-    size_t max_points_;
+
     tsl::robin_map<Indices, VoxelType, IndicesHash> voxels_;
 };
 

@@ -5,13 +5,15 @@
 #ifndef BUILD_KEYFRAME_H
 #define BUILD_KEYFRAME_H
 
+#include "voxel_with_plane.h"
+#include "voxel_with_points.h"
 #include "voxel_grid.h"
 
 class Keyframe
 {
 public:
-    using PlanarVoxelGrid = VoxelGrid<VoxelWithPoints<20>>;
-    using UnclassifiedVoxelGrid = VoxelGrid<VoxelWithPoints<20>>;
+    using PlanarVoxelGrid = VoxelGrid<VoxelWithPlanes<10>>;
+    using UnclassifiedVoxelGrid = VoxelGrid<VoxelWithPoints<10>>;
 
     Keyframe() = default;
 
