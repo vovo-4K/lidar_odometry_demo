@@ -22,6 +22,9 @@ public:
                        output_cloud->points.begin(),
                        [start_pose = &start_pose, end_pose = &end_pose](const auto &input_point) {
                            Eigen::Vector3f input_coord(input_point.x, input_point.y, input_point.z);
+
+                           //TODO: check rotation matrix!
+
                            Eigen::Vector3f transformed_coord =
                                    (start_pose->rotation.slerp(input_point.time, end_pose->rotation) *
                                     input_coord) +
@@ -44,7 +47,7 @@ public:
         auto output_cloud = std::make_shared<pcl::PointCloud<PointType>>();
         output_cloud->points.resize(input.points.size());
 
-        const Eigen::Matrix3f R = pose.rotation.toRotationMatrix();
+        const Eigen::Matrix3f R = pose.rotationMatrix();
         const Eigen::Vector3f t = pose.translation;
 
         std::transform(std::execution::par, input.points.cbegin(), input.points.cend(),

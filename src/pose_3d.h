@@ -18,7 +18,7 @@ public:
     }
 
     Pose3D(const Eigen::Vector3f& translation, const Eigen::Quaternionf& rotation)
-    : translation(translation), rotation(rotation) {}
+            : translation(translation), rotation(rotation) {}
 
     Pose3D relativeTo(const Pose3D& target) const
     {
@@ -36,6 +36,24 @@ public:
         Eigen::Quaternionf inverse_rotation = rotation.inverse();
         Eigen::Vector3f inverse_translation = inverse_rotation * (-translation);
         return {inverse_translation, inverse_rotation};
+    }
+
+    Eigen::Matrix3f rotationMatrix() const
+    {
+        return rotation.toRotationMatrix();
+        /*
+        const float q0 = rotation.w();
+        const float q1 = rotation.x();
+        const float q2 = rotation.y();
+        const float q3 = rotation.z();
+
+        Eigen::Matrix3f R;
+
+        R << q0*q0 + q1*q1 - q2*q2 - q3*q3, 2.0f*(q1*q2 - q0*q3), 2.0f*(q1*q3 + q0*q2),
+                2.0f*(q1*q2 + q0*q3), q0*q0 - q1*q1 + q2*q2 - q3*q3, 2.0f*(q2*q3 - q0*q1),
+                2.0f*(q1*q3 - q0*q2), 2.0f*(q2*q3 + q0*q1), q0*q0 - q1*q1 - q2*q2 + q3*q3;
+
+        return R;*/
     }
 
 };

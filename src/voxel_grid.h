@@ -224,7 +224,7 @@ public:
         output.reserve(cloud.size());
         std::mutex output_mutex;
 
-        Eigen::Matrix3d R = transform.rotation.cast<double>().toRotationMatrix();
+        Eigen::Matrix3d R = transform.rotationMatrix().cast<double>();//transform.rotation.cast<double>().toRotationMatrix();
         Eigen::Vector3d t = transform.translation.cast<double>();
 
         float max_correspondence_distance_sq = max_correspondence_distance * max_correspondence_distance;

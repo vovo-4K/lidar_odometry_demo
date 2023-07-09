@@ -1,17 +1,26 @@
 #include <gtest/gtest.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/common/transforms.h>
 #include <numbers>
 
 #include "../src/cloud_matcher.h"
 #include "../src/utils/cloud_transform.h"
 
-
-bool exactPointCmp(const pcl::PointNormal& point_a, const pcl::PointNormal& point_b)
+template<typename PointType>
+bool exactPointCmp(const PointType& point_a, const PointType& point_b)
 {
     return point_a.x == point_b.x &&
            point_a.y == point_b.y &&
            point_a.z == point_b.z;
+}
+
+template<typename PointType>
+bool pointCmp(const PointType& point_a, const PointType& point_b, float tolerance)
+{
+    return std::abs(point_a.x - point_b.x)<tolerance &&
+           std::abs(point_a.y - point_b.y)<tolerance &&
+           std::abs(point_a.z - point_b.z)<tolerance;
 }
 
 TEST(VoxelGrid, UniquePoints)
@@ -138,6 +147,47 @@ TEST(Pose3D, ComposeRelativeInverse)
         ASSERT_FLOAT_EQ(fabs(result_inverse2.rotation.dot(Eigen::Quaternionf(eigen_inverse2.rotation()))), 1.0);
     }
 }
+
+TEST(CloudTransformer, RigidTransform)
+{
+    pcl::PointCloud<pcl::PointXYZ> sample_cloud;
+    sample_cloud.points = {
+            {0, 0, 0},
+            {1, 0, 0},
+            {-1, 0, 0},
+            {0, 1, 0},
+            {0, -1, 0},
+            {0, 0, 1},
+            {0, 0, -1}
+    };
+    sample_cloud.width = sample_cloud.points.size();
+
+    std::vector<Pose3D> test_cases =
+            {
+                    {{0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(0.0, Eigen::Vector3f(0,0,1))}},
+                    {{0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(80.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1))}},
+                    {{0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(80.0*std::numbers::pi/180.0, Eigen::Vector3f(0,1,0))}},
+                    {{0,0,0}, Eigen::Quaternionf{Eigen::AngleAxisf(90.0*std::numbers::pi/180.0, Eigen::Vector3f(1,0,1).normalized())}},
+
+                    {{1,1,1}, Eigen::Quaternionf{Eigen::AngleAxisf(45.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0.5,0.5).normalized())}},
+                    {{-2,2,0}, Eigen::Quaternionf{Eigen::AngleAxisf(45.0*std::numbers::pi/180.0, Eigen::Vector3f(0.5,0.5,0).normalized())}},
+            };
+
+    for (const auto& test_case : test_cases) {
+        auto transformed = CloudTransformer::transform(sample_cloud, test_case);
+
+        pcl::PointCloud<pcl::PointXYZ> transformed_pcl;
+        Eigen::Affine3f transform = Eigen::Affine3f::Identity();
+        transform.translate(test_case.translation);
+        transform.rotate(test_case.rotation);
+        pcl::transformPointCloud(sample_cloud, transformed_pcl, transform);
+
+        for (size_t i=0; i<sample_cloud.size(); i++) {
+            ASSERT_TRUE(pointCmp(transformed->at(i), transformed_pcl.at(i), 1e-7));
+        }
+    }
+}
+
 /*
 TEST(VoxelWithPlanes, PlaneParameters)
 {
