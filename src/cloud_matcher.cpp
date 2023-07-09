@@ -11,6 +11,10 @@
 #include <ceres/problem.h>
 #include <ceres/solver.h>
 
+#include "utils/cloud_transform.h"
+#include <pcl/io/pcd_io.h>
+
+
 struct PointToPlaneError
 {
     Eigen::Vector3d local_point;
@@ -112,6 +116,12 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
 
     ceres::Problem::Options problem_options;
 
+
+    //auto keyframe_cloud = keyframe.getCloud();
+    //pcl::io::savePCDFileBinary("/home/vl/temp/target_.pcd", *keyframe_cloud);
+    //auto current_transformed = CloudTransformer::transform(planar_cloud, current_pose);
+    //pcl::io::savePCDFileBinary("/home/vl/temp/iter_init.pcd", *current_transformed);
+
     for (int i=0; i<20; i++) {
         // prepare ceres solver
         ceres::Problem problem(problem_options);
@@ -160,6 +170,11 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
                                     static_cast<float>(translation[1]),
                                     static_cast<float>(translation[2])};
 
+
+        //auto current_transformed = CloudTransformer::transform(planar_cloud, current_pose);
+        //pcl::io::savePCDFileBinary("/home/vl/temp/iter_"+std::to_string(i)+".pcd", *current_transformed);
+
+        //TODO: fix termination criteria
         if ((summary.final_cost>0)
             && (summary.final_cost<1e-4)
             && (i>3)) {

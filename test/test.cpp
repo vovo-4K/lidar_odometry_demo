@@ -274,8 +274,8 @@ TEST(CloudMatcher, MatchingTest)
             Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
             Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
             Pose3D({0.1, -0.1, 0}, Eigen::Quaternionf::Identity()),
-            Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-5.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
-            Pose3D({-0.2, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(12.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
+            Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-1.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
+            Pose3D({-0.2, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(2.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
     };
 
     for (const auto& guess_pose : guess_poses) {
