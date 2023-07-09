@@ -26,12 +26,11 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
     // deskew cloud
     auto relative_transform = previous_transform_.relativeTo(current_transform_);
     previous_transform_ = current_transform_;
+
     auto deskewed_input_cloud = CloudTransformer::transformNonRigid(*time_normalized, relative_transform.inverse(), Pose3D());
     temp_cloud_ = deskewed_input_cloud;
 
     auto [planar, unclassified] = CloudClassifier::classify(*deskewed_input_cloud);
-
-    //pcl::io::savePCDFileBinary("/home/vl/temp/normals.pcd", *planar);
 
     auto filtered_cloud = utils::rangeFilter(*planar, config_.lidar_min_range, config_.lidar_max_range);
 
@@ -44,12 +43,26 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
         return;
     }
 
-    VoxelGrid matching_downsampler(0.5, 1);
+    VoxelGrid matching_downsampler(0.25, 1);
     matching_downsampler.addCloud(*filtered_cloud);
 
     CloudMatcher matcher;
-    current_transform_ = matcher.align(keyframe_, *matching_downsampler.getCloudWithoutNormals(),
+    Pose3D new_transform_ = matcher.align(keyframe_, *matching_downsampler.getCloudWithoutNormals(),
                                        current_transform_.compose(relative_transform));
+
+    {
+        Eigen::Vector3f angles =
+                (new_transform_.rotation * current_transform_.rotation.inverse()).toRotationMatrix().eulerAngles(0, 1,2) *  180.0 / std::numbers::pi;
+        if (!((std::abs(angles(0)) < 5.0 || std::abs(angles(0)) > 175.0) &&
+              (std::abs(angles(1)) < 5.0 || std::abs(angles(1)) > 175.0) &&
+              (std::abs(angles(2)) < 5.0 || std::abs(angles(2)) > 175.0))) {
+            std::cout << "unstable rotation " << angles.transpose() << std::endl;
+            //new_transform_.rotation = current_transform_.compose(relative_transform).rotation;
+            new_transform_ = current_transform_.compose(relative_transform);
+        }
+    }
+
+    current_transform_ = new_transform_;
 
     keyframe_.radiusCleanup(current_transform_.translation, 80.0);
 
@@ -64,8 +77,11 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
 }
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr LidarOdometry::getKeyFrameCloud() const {
-    //return keyframe_.getCloudWithoutNormals();
     return keyframe_.getSparseCloudWithoutNormals();
+}
+
+pcl::PointCloud<pcl::PointXYZ>::Ptr LidarOdometry::getFullKeyFrameCloud() const {
+    return keyframe_.getCloudWithoutNormals();
 }
 
 Pose3D LidarOdometry::getCurrentPose() const {

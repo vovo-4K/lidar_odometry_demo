@@ -8,11 +8,9 @@
 #include <ceres/loss_function.h>
 #include <ceres/manifold.h>
 #include <ceres/autodiff_cost_function.h>
+#include <ceres/normal_prior.h>
 #include <ceres/problem.h>
 #include <ceres/solver.h>
-
-#include "utils/cloud_transform.h"
-#include <pcl/io/pcd_io.h>
 
 
 struct PointToPlaneError
@@ -116,7 +114,7 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
 
     ceres::Problem::Options problem_options;
 
-    for (int i=0; i<40; i++) {
+    for (int i=0; i<35; i++) {
         // prepare ceres solver
         ceres::Problem problem(problem_options);
 
@@ -133,7 +131,8 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
                                  current_pose.translation(2)};
         problem.AddParameterBlock(translation, 3);
 
-        ceres::LossFunction *loss_function = new ceres::HuberLoss(0.1);
+        ceres::LossFunction *loss_function = new ceres::HuberLoss(0.15);
+        ceres::LossFunction *prior_loss_function = new ceres::TrivialLoss();
 
         // find correspondences
         auto planar_matching_pairs =
@@ -150,6 +149,9 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
             problem.AddResidualBlock(new PointToPlaneErrorAnalytic(matching_pair.source_point_local, matching_pair.plane_origin, matching_pair.plane_normal),
                                      loss_function, quat, translation);
         }
+
+        ceres::CostFunction *cost_function = new ceres::NormalPrior(Eigen::Vector3d(0.1, 0.1, 0.1).asDiagonal().inverse(), position_guess.translation.cast<double>());
+        problem.AddResidualBlock(cost_function, prior_loss_function, translation);
 
         // optimize
         ceres::Solver::Summary summary;
@@ -169,6 +171,8 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
             break;
         }
     }
+
+    current_pose.rotation.normalize();
 
     return current_pose;
 }

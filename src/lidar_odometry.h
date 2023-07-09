@@ -52,6 +52,7 @@ public:
     void processCloud(const CloudType& input_cloud);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr getKeyFrameCloud() const;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr getFullKeyFrameCloud() const;
 
     Pose3D getCurrentPose() const;
 

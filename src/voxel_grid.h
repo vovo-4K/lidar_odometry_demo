@@ -33,7 +33,7 @@ public:
         std::size_t operator()(Indices const& indices) const noexcept
         {
             // https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf
-            return ((1<<22)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
+            return ((1<<20)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
         }
     };
 
@@ -82,6 +82,7 @@ public:
             auto it = voxels_.find(indices);
             if (it==voxels_.end()) {
                 VoxelWithPlanes voxel;
+                voxel.points_with_normals.reserve(max_points_);
                 voxel.addPoint(point.x, point.y, point.z, point.normal_x, point.normal_y, point.normal_z);
                 voxels_.insert({indices, voxel});
             } else {

@@ -13,7 +13,7 @@ public:
             : Node("lidar_odometry_node")
     {
         cloud_subscription_ =
-                this->create_subscription<sensor_msgs::msg::PointCloud2>("/lidar_points", rclcpp::QoS(10),
+                this->create_subscription<sensor_msgs::msg::PointCloud2>("/lidar_points", rclcpp::QoS(50),
                                                                          std::bind(&LidarOdometryNode::onPointCloudCallback, this, std::placeholders::_1));
 
         keyframe_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/keyframe_cloud", rclcpp::QoS(1).keep_last(1));
@@ -25,10 +25,18 @@ public:
 
         this->declare_parameters("lidar_odometry", LidarOdometry::Params::GetROSDeclaration());
 
+        this->declare_parameter("output_frame_parent", "odom");
+        this->declare_parameter("output_frame_child", "base_scan");
+        this->declare_parameter("publish_full_keyframe", false);
+
         std::map<std::string, rclcpp::ParameterValue> parameters;
         this->get_parameters("lidar_odometry", parameters);
 
         auto odom_params = LidarOdometry::Params::FromROS2Params(parameters);
+
+        output_frame_parent_ = this->get_parameter("output_frame_parent").as_string();
+        output_frame_child_ = this->get_parameter("output_frame_child").as_string();
+        publish_full_keyframe_ = this->get_parameter("publish_full_keyframe").as_bool();
 
         odometry_ptr_ = std::make_shared<LidarOdometry>(odom_params);
     }
@@ -42,11 +50,16 @@ protected:
         odometry_ptr_->processCloud(cloud);
 
         if (keyframe_publisher_->get_subscription_count()>0) {
-            auto keyframe_cloud_ptr = odometry_ptr_->getKeyFrameCloud();
+            pcl::PointCloud<pcl::PointXYZ>::Ptr keyframe_cloud_ptr;
+            if (publish_full_keyframe_) {
+                keyframe_cloud_ptr = odometry_ptr_->getFullKeyFrameCloud();
+            } else {
+                keyframe_cloud_ptr = odometry_ptr_->getKeyFrameCloud();
+            }
             sensor_msgs::msg::PointCloud2 keyframe_cloud_msg;
             pcl::toROSMsg(*keyframe_cloud_ptr, keyframe_cloud_msg);
             keyframe_cloud_msg.header.stamp = msg_ptr->header.stamp;
-            keyframe_cloud_msg.header.frame_id = "odom";
+            keyframe_cloud_msg.header.frame_id = output_frame_parent_;
             keyframe_publisher_->publish(keyframe_cloud_msg);
         }
 
@@ -56,7 +69,7 @@ protected:
                 sensor_msgs::msg::PointCloud2 deskewed_cloud_msg;
                 pcl::toROSMsg(*deskewed_cloud_ptr, deskewed_cloud_msg);
                 deskewed_cloud_msg.header.stamp = msg_ptr->header.stamp;
-                deskewed_cloud_msg.header.frame_id = "base_scan";
+                deskewed_cloud_msg.header.frame_id = output_frame_child_;
                 deskewed_publisher_->publish(deskewed_cloud_msg);
             }
         }
@@ -64,8 +77,8 @@ protected:
         // publish TF
         geometry_msgs::msg::TransformStamped t;
         t.header.stamp = msg_ptr->header.stamp;
-        t.header.frame_id = "odom";
-        t.child_frame_id = "base_scan";
+        t.header.frame_id = output_frame_parent_;
+        t.child_frame_id = output_frame_child_;
 
         t.transform.translation.x = pose.translation.x();
         t.transform.translation.y = pose.translation.y();
@@ -82,8 +95,8 @@ protected:
         // publish odometry
         nav_msgs::msg::Odometry odom_msg;
         odom_msg.header.stamp = msg_ptr->header.stamp;
-        odom_msg.header.frame_id = "odom";
-        odom_msg.child_frame_id = "base_scan";
+        odom_msg.header.frame_id = output_frame_parent_;
+        odom_msg.child_frame_id = output_frame_child_;
         odom_msg.pose.pose.position.x = pose.translation.x();
         odom_msg.pose.pose.position.y = pose.translation.y();
         odom_msg.pose.pose.position.z = pose.translation.z();
@@ -102,6 +115,10 @@ private:
     std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
     std::shared_ptr<LidarOdometry> odometry_ptr_;
+
+    std::string output_frame_parent_;
+    std::string output_frame_child_;
+    bool publish_full_keyframe_;
 };
 
 int main(int argc, char ** argv)

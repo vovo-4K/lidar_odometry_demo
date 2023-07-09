@@ -46,11 +46,10 @@ public:
                 indexed_row.resize(max_row_width, PointType());
 
                 for (const auto &point : ray.second) {
-                    //float azimuth = CloudClassifier::fastAtan2(-point.y, point.x) + std::numbers::pi;
                     float azimuth = atan2(-point.y, point.x) + std::numbers::pi;
                     size_t approx_point_index = std::abs(azimuth * max_row_width / (2.0 * std::numbers::pi));
 
-                    if (approx_point_index>=0 && approx_point_index<max_row_width) {
+                    if (approx_point_index<max_row_width) {
                         indexed_row[approx_point_index] = point;
                     }
                 }
@@ -107,7 +106,7 @@ public:
         }
 
         // find normals
-        const int normals_window_size = 3;
+        const int normals_window_size = 4;
         const int cloud_height = organized_cloud->height;
         const int cloud_width = organized_cloud->width;
         const float flatness_threshold = 0.05;
@@ -156,38 +155,6 @@ public:
                     } else {
                         unclassified_points_cloud->points.push_back(point);
                     }
-
-/*
-                    Eigen::MatrixXf points = Eigen::MatrixXf(normals_window_size*2 + 2, 3);
-                    points.row(0) << point.x, point.y, point.z;
-                    int found_points = 1;
-
-                    for (int prev_ray_point = point_index - normals_window_size; prev_ray_point<=point_index + normals_window_size; prev_ray_point++) {
-                        const auto &neighbour_point = organized_cloud->points.at( prev_ray_id*cloud_width + prev_ray_point);
-                        if (neighbour_point.intensity < flatness_threshold*10.0) {
-                            points.row(found_points) << neighbour_point.x, neighbour_point.y, neighbour_point.z;
-                            found_points++;
-                        }
-                    }
-                    // calc normal
-                    if (found_points>2) {
-                        Eigen::JacobiSVD<Eigen::MatrixXf> svd;
-                        svd.compute(points.block(0, 0, found_points, 3), Eigen::ComputeThinV);
-                        Eigen::Matrix3f matrixV = svd.matrixV();
-                        // TODO: flatness check
-                        pcl::PointNormal planar_point;
-                        planar_point.x = point.x;
-                        planar_point.y = point.y;
-                        planar_point.z = point.z;
-
-                        planar_point.normal_x = matrixV(2,0);
-                        planar_point.normal_y = matrixV(2,1);
-                        planar_point.normal_z = matrixV(2,2);
-
-                        planar_points_cloud->points.push_back(planar_point);
-                    } else {
-                        unclassified_points_cloud->points.push_back(point);
-                    }*/
                 } else {
                     if (point.intensity < intensity_max) {
                         unclassified_points_cloud->points.push_back(point);
@@ -198,36 +165,6 @@ public:
         }
 
         return {planar_points_cloud, unclassified_points_cloud};
-    }
-
-    // https://mazzo.li/posts/vectorized-atan2.html
-    static float fastAtan2(float y, float x)
-    {
-        bool swap = fabs(x) < fabs(y);
-        float atan_input = (swap ? x : y) / (swap ? y : x);
-
-// Approximate atan
-        constexpr float a1  =  0.99997726f;
-        constexpr float a3  = -0.33262347f;
-        constexpr float a5  =  0.19354346f;
-        constexpr float a7  = -0.11643287f;
-        constexpr float a9  =  0.05265332f;
-        constexpr float a11 = -0.01172120f;
-
-        float x_sq = atan_input*atan_input;
-        float res =
-                atan_input * (a1 + x_sq * (a3 + x_sq * (a5 + x_sq * (a7 + x_sq * (a9 + x_sq * a11)))));
-
-// If swapped, adjust atan output
-        res = swap ? (atan_input >= 0.0f ? M_PI_2 : -M_PI_2) - res : res;
-// Adjust quadrants
-        if      (x >= 0.0f && y >= 0.0f) {}                     // 1st quadrant
-        else if (x <  0.0f && y >= 0.0f) { res =  M_PI + res; } // 2nd quadrant
-        else if (x <  0.0f && y <  0.0f) { res = -M_PI + res; } // 3rd quadrant
-        else if (x >= 0.0f && y <  0.0f) {}                     // 4th quadrant
-
-// Store result
-        return res;
     }
 };
 
