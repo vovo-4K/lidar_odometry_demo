@@ -174,11 +174,8 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
         //auto current_transformed = CloudTransformer::transform(planar_cloud, current_pose);
         //pcl::io::savePCDFileBinary("/home/vl/temp/iter_"+std::to_string(i)+".pcd", *current_transformed);
 
-        //TODO: fix termination criteria
-        if ((summary.final_cost>0)
-            && (summary.final_cost<1e-4)
-            && (i>3)) {
-            std::cout<<"Criteria reached"<<std::endl;
+        if (summary.iterations.back().step_norm < 1e-4 && (i>3)) {
+            //minimization convergence
             break;
         }
     }
