@@ -12,13 +12,15 @@
 #include "cloud_matcher.h"
 
 LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(config) {
+    /*
     current_transform_.translation.setZero();
     current_transform_.rotation.setIdentity();
     previous_transform_ = current_transform_;
-    keyframe_.setVoxelsSize(0.5, config_.keyframe_voxel_size);
+    keyframe_.setVoxelsSize(0.5, config_.keyframe_voxel_size);*/
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
+    /*
     // normalize time
     auto time_normalized = utils::pointTimeNormalize(input_cloud);
 
@@ -58,13 +60,14 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
     // update keyframe
     auto planar_transformed = CloudTransformer::transform(*planar_voxelized, current_transform_);
     auto unclassified_transformed = CloudTransformer::transform(*unclassified_voxelized, current_transform_);
-    keyframe_.addClouds(*planar_transformed, *unclassified_transformed);
+    keyframe_.addCloud(*planar_transformed, *unclassified_transformed);
 
-    temp_cloud_ = planar_transformed;
+    temp_cloud_ = planar_transformed;*/
 }
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr LidarOdometry::getKeyFrameCloud() const {
-    return keyframe_.getCloud();
+    return std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+ //   return keyframe_.getCloud();
 }
 
 Pose3D LidarOdometry::getCurrentPose() const {

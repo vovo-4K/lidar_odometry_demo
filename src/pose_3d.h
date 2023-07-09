@@ -22,9 +22,6 @@ public:
 
     Pose3D relativeTo(const Pose3D& target) const
     {
-        //Eigen::Quaternionf inverse_rotation = rotation.inverse();
-        //Eigen::Vector3f inverse_translation = inverse_rotation * (-translation);
-        //return {inverse_translation + target.translation, inverse_rotation * target.rotation};
         auto inv = inverse();
         return inv.compose(target);
     }

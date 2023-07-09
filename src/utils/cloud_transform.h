@@ -8,6 +8,7 @@
 #include <execution>
 
 #include "../pose_3d.h"
+#include "../lidar_point_type.h"
 
 class CloudTransformer {
 public:
@@ -43,13 +44,16 @@ public:
         auto output_cloud = std::make_shared<pcl::PointCloud<PointType>>();
         output_cloud->points.resize(input.points.size());
 
+        const Eigen::Matrix3f R = pose.rotation.toRotationMatrix();
+        const Eigen::Vector3f t = pose.translation;
+
         std::transform(std::execution::par, input.points.cbegin(), input.points.cend(),
                        output_cloud->points.begin(),
-                       [pose](const auto &input_point) {
+                       [&R, &t](const auto &input_point) {
                            auto output_point = input_point;
 
                            Eigen::Vector3f input_coord(input_point.x, input_point.y, input_point.z);
-                           Eigen::Vector3f transformed_coord = pose.rotation * input_coord + pose.translation;
+                           Eigen::Vector3f transformed_coord = R * input_coord + t;
 
                            output_point.x = transformed_coord.x();
                            output_point.y = transformed_coord.y();

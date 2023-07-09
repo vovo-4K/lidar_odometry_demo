@@ -6,14 +6,13 @@
 #define BUILD_CLOUDMATCHER_H
 
 #include <pcl/point_cloud.h>
-#include "lidar_point_type.h"
 #include "pose_3d.h"
-#include "keyframe.h"
+#include "voxel_grid.h"
+#include "voxel_with_planes.h"
 
 class CloudMatcher {
 public:
-    Pose3D align(const Keyframe& keyframe, const pcl::PointCloud<pcl::PointXYZ> &planar_cloud,
-                 const pcl::PointCloud<pcl::PointXYZ> &unclassified_cloud,
+    Pose3D align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl::PointXYZ> &planar_cloud,
                  const Pose3D& position_guess);
 };
 

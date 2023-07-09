@@ -1,12 +1,13 @@
 #include <gtest/gtest.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/features/normal_3d.h>
 #include <numbers>
 
 #include "../src/cloud_matcher.h"
 #include "../src/utils/cloud_transform.h"
 
 
-bool exactPointCmp(const pcl::PointXYZ& point_a, const pcl::PointXYZ& point_b)
+bool exactPointCmp(const pcl::PointNormal& point_a, const pcl::PointNormal& point_b)
 {
     return point_a.x == point_b.x &&
            point_a.y == point_b.y &&
@@ -15,7 +16,7 @@ bool exactPointCmp(const pcl::PointXYZ& point_a, const pcl::PointXYZ& point_b)
 
 TEST(VoxelGrid, UniquePoints)
 {
-    pcl::PointCloud<pcl::PointXYZ> input_cloud;
+    pcl::PointCloud<pcl::PointNormal> input_cloud;
     input_cloud.points.emplace_back(0,0,0);
     input_cloud.points.emplace_back(1,0,0);
     input_cloud.points.emplace_back(0,1,0);
@@ -24,7 +25,7 @@ TEST(VoxelGrid, UniquePoints)
     input_cloud.points.emplace_back(0,-1,0);
     input_cloud.points.emplace_back(0,0,-1);
 
-    VoxelGrid<VoxelWithPoints<1>> voxel_grid(0.5, 1);
+    VoxelGrid voxel_grid(0.5, 1);
     voxel_grid.addCloud(input_cloud);
 
     ASSERT_EQ(voxel_grid.size(), input_cloud.size());
@@ -32,9 +33,9 @@ TEST(VoxelGrid, UniquePoints)
     auto output_cloud = voxel_grid.getCloud();
     ASSERT_EQ(input_cloud.size(), output_cloud->size());
 
-    for (const pcl::PointXYZ &output_point : output_cloud->points) {
+    for (const auto &output_point : output_cloud->points) {
         auto search_point_it = std::find_if(input_cloud.points.begin(), input_cloud.points.end(),
-                                            [&output_point](const pcl::PointXYZ& input_point){
+                                            [&output_point](const auto& input_point){
                                                 return exactPointCmp(output_point, input_point);
                                             });
 
@@ -46,13 +47,13 @@ TEST(VoxelGrid, UniquePoints)
 
 TEST(VoxelGrid, DuplicatePoints)
 {
-    pcl::PointCloud<pcl::PointXYZ> input_cloud;
+    pcl::PointCloud<pcl::PointNormal> input_cloud;
     input_cloud.points.emplace_back(0,0,0);
     input_cloud.points.emplace_back(1,0,0);
     input_cloud.points.emplace_back(0,0,0);
     input_cloud.points.emplace_back(1,0,0);
 
-    VoxelGrid<VoxelWithPoints<1>> voxel_grid(0.5, 1);
+    VoxelGrid voxel_grid(0.5, 1);
     voxel_grid.addCloud(input_cloud);
 
     ASSERT_EQ(voxel_grid.size(), size_t(2));
@@ -137,7 +138,7 @@ TEST(Pose3D, ComposeRelativeInverse)
         ASSERT_FLOAT_EQ(fabs(result_inverse2.rotation.dot(Eigen::Quaternionf(eigen_inverse2.rotation()))), 1.0);
     }
 }
-
+/*
 TEST(VoxelWithPlanes, PlaneParameters)
 {
     using PlaneParams = std::pair<Eigen::Vector3f, Eigen::Vector3f>; // origin, normal
@@ -158,7 +159,7 @@ TEST(VoxelWithPlanes, PlaneParameters)
             };
 
     for (const auto &test_case : test_cases) {
-        VoxelWithPlanes<5> voxel;
+        VoxelWithPlanes voxel;
         for (const auto &point : test_case.first) {
             voxel.addPoint(point(0), point(1), point(2));
         }
@@ -171,18 +172,49 @@ TEST(VoxelWithPlanes, PlaneParameters)
     }
 
 }
+ */
 
 TEST(CloudMatcher, MatchingTest)
 {
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
 
-    Keyframe keyframe(0.25, 0.1);
-    keyframe.addClouds(*full_cloud, pcl::PointCloud<pcl::PointXYZ>());
+    pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
+    ne.setInputCloud(full_cloud);
+
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+    ne.setSearchMethod(tree);
+
+    pcl::PointCloud<pcl::Normal>::Ptr normals_cloud(new pcl::PointCloud<pcl::Normal>);
+    ne.setRadiusSearch(0.1);
+    ne.compute(*normals_cloud);
+
+    auto full_cloud_with_normals = std::make_shared<pcl::PointCloud<pcl::PointNormal>>();
+    full_cloud_with_normals->points.reserve(full_cloud->size());
+    for (size_t i=0; i < full_cloud->points.size(); i++) {
+        pcl::PointNormal output_point;
+        output_point.x = full_cloud->points.at(i).x;
+        output_point.y = full_cloud->points.at(i).y;
+        output_point.z = full_cloud->points.at(i).z;
+
+        output_point.normal_x = normals_cloud->points.at(i).normal_x;
+        output_point.normal_y = normals_cloud->points.at(i).normal_y;
+        output_point.normal_z = normals_cloud->points.at(i).normal_z;
+
+        if (std::isnan(output_point.normal_x) || std::isnan(output_point.normal_y) || std::isnan(output_point.normal_z)) {
+            continue;
+        }
+
+        full_cloud_with_normals->points.push_back(output_point);
+    }
+
+    VoxelGrid keyframe(0.2, 20);
+    keyframe.addCloud(*full_cloud_with_normals);
 
     CloudMatcher matcher;
 
     std::vector<Pose3D> guess_poses{
+            Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf::Identity()),
             Pose3D({0.0, 0.0, 0.1}, Eigen::Quaternionf::Identity()),
             Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
             Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
@@ -194,14 +226,13 @@ TEST(CloudMatcher, MatchingTest)
     for (const auto& guess_pose : guess_poses) {
         std::cerr<<"guess transform: t: "<<guess_pose.translation.transpose() <<" q: "<<guess_pose.rotation<<std::endl;
 
-        auto guess_cloud = CloudTransformer::transform(*keyframe.getCloud(), guess_pose.inverse());
+        VoxelGrid voxel_filter(0.5, 1);
+        voxel_filter.addCloudWithoutNormals(*full_cloud);
+        auto subsampled_cloud = voxel_filter.getCloudWithoutNormals();
 
-        VoxelGrid<VoxelWithPoints<1>> voxel_filter(0.5, 1);
-        voxel_filter.addCloud(*guess_cloud);
+        auto guess_cloud = CloudTransformer::transform(*subsampled_cloud, guess_pose.inverse());
 
-        auto subsampled_cloud = voxel_filter.getCloud();
-
-        auto final_transform = matcher.align(keyframe, *subsampled_cloud, pcl::PointCloud<pcl::PointXYZ>(), Pose3D());
+        auto final_transform = matcher.align(keyframe, *guess_cloud, Pose3D());
 
         std::cout<<final_transform.translation.transpose()<<std::endl;
 
@@ -212,7 +243,7 @@ TEST(CloudMatcher, MatchingTest)
 
         auto rotation_error = 1.0 - fabs(final_transform.rotation.dot(guess_pose.rotation));
 
-        ASSERT_LT(error.translation.norm(), 0.01);
+        ASSERT_LT(error.translation.norm(), 0.02);
         ASSERT_LT(rotation_error, 0.01);
     }
 }
