@@ -16,65 +16,56 @@ LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(conf
     current_transform_.rotation.setIdentity();
     previous_transform_ = current_transform_;
     keyframe_.setVoxelSize(config_.keyframe_voxel_size);
+    keyframe_.setMaxPoints(20);
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
     auto start_time = std::chrono::high_resolution_clock::now();
-    auto [planar, unclassified] = CloudClassifier::classify(input_cloud);
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto time = end_time - start_time;
-    std::cout<<"classification time: "<< time/std::chrono::milliseconds(1) <<"ms"<<std::endl;
-    temp_cloud_ = planar;
-
-    pcl::io::savePCDFileBinary("/home/vl/temp/normals.pcd", *planar);
-    /*
     // normalize time
     auto time_normalized = utils::pointTimeNormalize(input_cloud);
-
-    // range filter cloud
-    auto filtered_cloud = utils::rangeFilter(*time_normalized, config_.lidar_min_range, config_.lidar_max_range);
-
-    auto [planar, unclassified] = CloudClassifier::classify(*filtered_cloud);
-    //temp_cloud_ = planar;
-
     // deskew cloud
     auto relative_transform = previous_transform_.relativeTo(current_transform_);
     previous_transform_ = current_transform_;
+    auto deskewed_input_cloud = CloudTransformer::transformNonRigid(*time_normalized, relative_transform.inverse(), Pose3D());
+    temp_cloud_ = deskewed_input_cloud;
 
-    auto deskewed_planar_cloud = CloudTransformer::transformNonRigid(*planar, relative_transform.inverse(), Pose3D());
-    auto deskewed_unclassified_cloud = CloudTransformer::transformNonRigid(*unclassified, relative_transform.inverse(), Pose3D());
+    auto [planar, unclassified] = CloudClassifier::classify(*deskewed_input_cloud);
 
-    // match with keyframe
-    VoxelGrid<VoxelWithPoints<1>> scan_downsampler_planar(0.2, 1);
-    scan_downsampler_planar.addCloud(*deskewed_planar_cloud);
-    auto planar_voxelized = scan_downsampler_planar.getCloud();
+    //pcl::io::savePCDFileBinary("/home/vl/temp/normals.pcd", *planar);
 
-    VoxelGrid<VoxelWithPoints<1>> scan_downsampler_unclassified(0.2, 1);
-    scan_downsampler_unclassified.addCloud(*deskewed_planar_cloud);
-    auto unclassified_voxelized = scan_downsampler_unclassified.getCloud();
+    auto filtered_cloud = utils::rangeFilter(*planar, config_.lidar_min_range, config_.lidar_max_range);
 
-    // init keyframe
+    VoxelGrid keyframe_downsampler(0.1, 1);
+    keyframe_downsampler.addCloud(*filtered_cloud);
+
     if (keyframe_.size() == 0) {
-        keyframe_.addClouds(*planar_voxelized, *unclassified_voxelized);
+        // init keyframe
+        keyframe_.addCloud(*keyframe_downsampler.getCloud());
         return;
     }
 
+    VoxelGrid matching_downsampler(0.5, 1);
+    matching_downsampler.addCloud(*filtered_cloud);
+
     CloudMatcher matcher;
-    current_transform_ = matcher.align(keyframe_, *planar_voxelized, *unclassified_voxelized, current_transform_.compose(relative_transform));
+    current_transform_ = matcher.align(keyframe_, *matching_downsampler.getCloudWithoutNormals(),
+                                       current_transform_.compose(relative_transform));
 
-    keyframe_.radiusCleanup(current_transform_.translation, 70.0);
+    keyframe_.radiusCleanup(current_transform_.translation, 80.0);
 
-    // update keyframe
-    auto planar_transformed = CloudTransformer::transform(*planar_voxelized, current_transform_);
-    auto unclassified_transformed = CloudTransformer::transform(*unclassified_voxelized, current_transform_);
-    keyframe_.addCloud(*planar_transformed, *unclassified_transformed);
+    auto keyframe_update = CloudTransformer::transformWithNormals(*keyframe_downsampler.getCloud(), current_transform_);
+    keyframe_.addCloud(*keyframe_update);
 
-    temp_cloud_ = planar_transformed;*/
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto time = end_time - start_time;
+    std::cout<<"processing time: "<< time/std::chrono::milliseconds(1) <<"ms"<<std::endl;
+
 }
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr LidarOdometry::getKeyFrameCloud() const {
-    return std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
- //   return keyframe_.getCloud();
+    //return keyframe_.getCloudWithoutNormals();
+    return keyframe_.getSparseCloudWithoutNormals();
 }
 
 Pose3D LidarOdometry::getCurrentPose() const {

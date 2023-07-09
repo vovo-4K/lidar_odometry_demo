@@ -46,8 +46,9 @@ public:
                 indexed_row.resize(max_row_width, PointType());
 
                 for (const auto &point : ray.second) {
-                    float azimuth = CloudClassifier::fastAtan2(-point.y, point.x) + std::numbers::pi;
-                    int approx_point_index = azimuth * max_row_width / (2.0 * std::numbers::pi);
+                    //float azimuth = CloudClassifier::fastAtan2(-point.y, point.x) + std::numbers::pi;
+                    float azimuth = atan2(-point.y, point.x) + std::numbers::pi;
+                    size_t approx_point_index = std::abs(azimuth * max_row_width / (2.0 * std::numbers::pi));
 
                     if (approx_point_index>=0 && approx_point_index<max_row_width) {
                         indexed_row[approx_point_index] = point;

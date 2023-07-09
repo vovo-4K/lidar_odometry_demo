@@ -86,7 +86,7 @@ public:
                 voxels_.insert({indices, voxel});
             } else {
                 if (it.value().points_with_normals.size()<max_points_)
-                it.value().addPoint(point.x, point.y, point.z, point.normal_x, point.normal_y, point.normal_z);
+                    it.value().addPoint(point.x, point.y, point.z, point.normal_x, point.normal_y, point.normal_z);
             }
         }
     }
@@ -140,6 +140,22 @@ public:
                 output_point.z = p.point.z();
                 output_cloud->points.push_back(output_point);
             }
+        }
+        return output_cloud;
+    }
+
+    //
+    pcl::PointCloud<pcl::PointXYZ>::Ptr getSparseCloudWithoutNormals() const
+    {
+        auto output_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+        output_cloud->points.reserve(voxels_.size() * max_points_);
+        for (const auto& voxel : voxels_) {
+            const auto &p = voxel.second.points_with_normals.front();
+            pcl::PointXYZ output_point;
+            output_point.x = p.point.x();
+            output_point.y = p.point.y();
+            output_point.z = p.point.z();
+            output_cloud->points.push_back(output_point);
         }
         return output_cloud;
     }

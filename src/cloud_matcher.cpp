@@ -110,19 +110,13 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
 
     ceres::Solver::Options solver_options;
     solver_options.linear_solver_type = ceres::DENSE_QR;
-    solver_options.max_num_iterations = 3;
-    solver_options.function_tolerance = 1e-4;
+    solver_options.max_num_iterations = 4;
+    solver_options.function_tolerance = 1e-5;
     //solver_options.minimizer_progress_to_stdout = true;
 
     ceres::Problem::Options problem_options;
 
-
-    //auto keyframe_cloud = keyframe.getCloud();
-    //pcl::io::savePCDFileBinary("/home/vl/temp/target_.pcd", *keyframe_cloud);
-    //auto current_transformed = CloudTransformer::transform(planar_cloud, current_pose);
-    //pcl::io::savePCDFileBinary("/home/vl/temp/iter_init.pcd", *current_transformed);
-
-    for (int i=0; i<20; i++) {
+    for (int i=0; i<40; i++) {
         // prepare ceres solver
         ceres::Problem problem(problem_options);
 
@@ -169,10 +163,6 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
         current_pose.translation = {static_cast<float>(translation[0]),
                                     static_cast<float>(translation[1]),
                                     static_cast<float>(translation[2])};
-
-
-        //auto current_transformed = CloudTransformer::transform(planar_cloud, current_pose);
-        //pcl::io::savePCDFileBinary("/home/vl/temp/iter_"+std::to_string(i)+".pcd", *current_transformed);
 
         if (summary.iterations.back().step_norm < 1e-4 && (i>3)) {
             //minimization convergence

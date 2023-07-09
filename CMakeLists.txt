@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(PCL REQUIRED)
@@ -37,7 +38,7 @@ target_include_directories(lidar_odometry_node PUBLIC
 target_compile_features(lidar_odometry_node PUBLIC c_std_99 cxx_std_23)
 
 target_link_libraries(lidar_odometry_node ${PCL_LIBRARIES} tsl::robin_map Ceres::ceres)
-ament_target_dependencies(lidar_odometry_node rclcpp sensor_msgs tf2 tf2_ros pcl_conversions Eigen3)
+ament_target_dependencies(lidar_odometry_node rclcpp sensor_msgs nav_msgs tf2 tf2_ros pcl_conversions Eigen3)
 
 install(TARGETS lidar_odometry_node
   DESTINATION lib/${PROJECT_NAME})

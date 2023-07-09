@@ -59,7 +59,7 @@ public:
         return temp_cloud_;
     }
 private:
-    pcl::PointCloud<pcl::PointNormal>::Ptr temp_cloud_;
+    pcl::PointCloud<lidar_point::PointXYZIRT>::Ptr temp_cloud_;
 
     const Params config_;
 
