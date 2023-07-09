@@ -12,14 +12,21 @@
 #include "cloud_matcher.h"
 
 LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(config) {
-    /*
     current_transform_.translation.setZero();
     current_transform_.rotation.setIdentity();
     previous_transform_ = current_transform_;
-    keyframe_.setVoxelsSize(0.5, config_.keyframe_voxel_size);*/
+    keyframe_.setVoxelSize(config_.keyframe_voxel_size);
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    auto [planar, unclassified] = CloudClassifier::classify(input_cloud);
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto time = end_time - start_time;
+    std::cout<<"classification time: "<< time/std::chrono::milliseconds(1) <<"ms"<<std::endl;
+    temp_cloud_ = planar;
+
+    pcl::io::savePCDFileBinary("/home/vl/temp/normals.pcd", *planar);
     /*
     // normalize time
     auto time_normalized = utils::pointTimeNormalize(input_cloud);
