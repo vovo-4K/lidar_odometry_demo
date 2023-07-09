@@ -33,6 +33,73 @@ struct PointToPlaneError
     }
 };
 
+class PointToPlaneErrorAnalytic : public ceres::SizedCostFunction<1, 4, 3> {
+public:
+    Eigen::Vector3d local_point;
+    Eigen::Vector3d plane_origin;
+    Eigen::Vector3d plane_normal;
+
+    PointToPlaneErrorAnalytic(Eigen::Vector3d local_point, Eigen::Vector3d plane_origin, Eigen::Vector3d plane_normal)
+    : local_point(std::move(local_point)), plane_origin(std::move(plane_origin)), plane_normal(std::move(plane_normal))
+    {}
+
+    bool Evaluate(double const* const* parameters,
+                          double* residuals,
+                          double** jacobians) const final
+    {
+        Eigen::Quaternion<double> rot(parameters[0][0], parameters[0][1], parameters[0][2], parameters[0][3]);
+        Eigen::Vector<double, 3> t(parameters[1][0], parameters[1][1], parameters[1][2]);
+
+        residuals[0] = (rot*local_point + t - plane_origin).dot(plane_normal);
+
+        if (jacobians != nullptr) {
+            if (jacobians[0] != nullptr) {
+                double q0 = parameters[0][0];
+                double q1 = parameters[0][1];
+                double q2 = parameters[0][2];
+                double q3 = parameters[0][3];
+                // de/dq
+                Eigen::Matrix3d dRdqw;
+                dRdqw << q0, -q3,  q2,
+                        q3,  q0, -q1,
+                        -q2,  q1,  q0;
+                dRdqw = 2.0 * dRdqw;
+
+                Eigen::Matrix3d dRdqx;
+                dRdqx << q1,  q2,  q3,
+                        q2, -q1, -q0,
+                        q3,  q0, -q1;
+                dRdqx = 2.0 * dRdqx;
+
+                Eigen::Matrix3d dRdqy;
+                dRdqy << -q2, q1, q0,
+                        q1, q2, q3,
+                        -q0, q3, -q2;
+                dRdqy = 2.0 * dRdqy;
+
+                Eigen::Matrix3d dRdqz;
+                dRdqz << -q3, -q0, q1,
+                        q0, -q3, q2,
+                        q1, q2, q3;
+                dRdqz = 2.0 * dRdqz;
+
+                jacobians[0][0] = (dRdqw*local_point).dot(plane_normal);
+                jacobians[0][1] = (dRdqx*local_point).dot(plane_normal);
+                jacobians[0][2] = (dRdqy*local_point).dot(plane_normal);
+                jacobians[0][3] = (dRdqz*local_point).dot(plane_normal);
+            }
+            if (jacobians[1] != nullptr) {
+                // de/qt
+                jacobians[1][0] = Eigen::Vector3d(1,0,0).dot(plane_normal);
+                jacobians[1][1] = Eigen::Vector3d(0,1,0).dot(plane_normal);
+                jacobians[1][2] = Eigen::Vector3d(0,0,1).dot(plane_normal);
+            }
+        }
+
+        return true;
+    }
+};
+
 Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl::PointXYZ> &planar_cloud,
                            const Pose3D& position_guess) {
     Pose3D current_pose = position_guess;
@@ -45,7 +112,7 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
 
     ceres::Problem::Options problem_options;
 
-    for (int i=0; i<10; i++) {
+    for (int i=0; i<20; i++) {
         // prepare ceres solver
         ceres::Problem problem(problem_options);
 
@@ -71,11 +138,13 @@ Pose3D CloudMatcher::align(const VoxelGrid& keyframe, const pcl::PointCloud<pcl:
         // build optimization problem
         for (const auto& matching_pair : planar_matching_pairs) {
 
-            ceres::CostFunction *cost_function =
-                    new ceres::AutoDiffCostFunction<PointToPlaneError, 1, 4, 3>(
-                            new PointToPlaneError(matching_pair.source_point_local, matching_pair.plane_origin, matching_pair.plane_normal));
+            //ceres::CostFunction *cost_function =
+            //        new ceres::AutoDiffCostFunction<PointToPlaneError, 1, 4, 3>(
+            //                new PointToPlaneError(matching_pair.source_point_local, matching_pair.plane_origin, matching_pair.plane_normal));
+            //problem.AddResidualBlock(cost_function, loss_function, quat, translation);
 
-            problem.AddResidualBlock(cost_function, loss_function, quat, translation);
+            problem.AddResidualBlock(new PointToPlaneErrorAnalytic(matching_pair.source_point_local, matching_pair.plane_origin, matching_pair.plane_normal),
+                                     loss_function, quat, translation);
         }
 
         // optimize

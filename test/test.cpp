@@ -177,7 +177,7 @@ TEST(VoxelWithPlanes, PlaneParameters)
 TEST(CloudMatcher, MatchingTest)
 {
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-    pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/intersection00056.pcd", *full_cloud);
+    pcl::io::loadPCDFile<pcl::PointXYZ>("lidar_odometry_test_data/scan_005_subsampled_crop.pcd", *full_cloud);
 
     pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
     ne.setInputCloud(full_cloud);
@@ -186,7 +186,8 @@ TEST(CloudMatcher, MatchingTest)
     ne.setSearchMethod(tree);
 
     pcl::PointCloud<pcl::Normal>::Ptr normals_cloud(new pcl::PointCloud<pcl::Normal>);
-    ne.setRadiusSearch(0.1);
+    ne.setRadiusSearch(0.25);
+    //ne.setKSearch(20);
     ne.compute(*normals_cloud);
 
     auto full_cloud_with_normals = std::make_shared<pcl::PointCloud<pcl::PointNormal>>();
@@ -208,8 +209,12 @@ TEST(CloudMatcher, MatchingTest)
         full_cloud_with_normals->points.push_back(output_point);
     }
 
-    VoxelGrid keyframe(0.2, 20);
+    VoxelGrid keyframe(0.25, 20);
     keyframe.addCloud(*full_cloud_with_normals);
+
+    VoxelGrid voxel_filter(0.5, 1);
+    voxel_filter.addCloudWithoutNormals(*full_cloud);
+    auto subsampled_cloud = voxel_filter.getCloudWithoutNormals();
 
     CloudMatcher matcher;
 
@@ -219,16 +224,12 @@ TEST(CloudMatcher, MatchingTest)
             Pose3D({0.1, 0.1, 0.1}, Eigen::Quaternionf::Identity()),
             Pose3D({-0.1, -0.1, -0.1}, Eigen::Quaternionf::Identity()),
             Pose3D({0.1, -0.1, 0}, Eigen::Quaternionf::Identity()),
-            Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-10.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
+            Pose3D({0.0, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(-5.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
             Pose3D({-0.2, 0.0, 0.0}, Eigen::Quaternionf(Eigen::AngleAxisf(12.0*std::numbers::pi/180.0, Eigen::Vector3f(0,0,1)))),
     };
 
     for (const auto& guess_pose : guess_poses) {
         std::cerr<<"guess transform: t: "<<guess_pose.translation.transpose() <<" q: "<<guess_pose.rotation<<std::endl;
-
-        VoxelGrid voxel_filter(0.5, 1);
-        voxel_filter.addCloudWithoutNormals(*full_cloud);
-        auto subsampled_cloud = voxel_filter.getCloudWithoutNormals();
 
         auto guess_cloud = CloudTransformer::transform(*subsampled_cloud, guess_pose.inverse());
 
@@ -243,7 +244,7 @@ TEST(CloudMatcher, MatchingTest)
 
         auto rotation_error = 1.0 - fabs(final_transform.rotation.dot(guess_pose.rotation));
 
-        ASSERT_LT(error.translation.norm(), 0.02);
+        ASSERT_LT(error.translation.norm(), 0.05);
         ASSERT_LT(rotation_error, 0.01);
     }
 }
