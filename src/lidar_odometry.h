@@ -25,15 +25,25 @@ public:
         float lidar_min_range;
         float lidar_max_range;
         float keyframe_voxel_size;
+        size_t keyframe_max_points_cnt;
+        float keyframe_matching_voxel_size;
+        float keyframe_update_voxel_size;
+        float keyframe_cleanup_range;
+        float angular_divergence_threshold;
 
         using ROS2ParametersMap = std::map<std::string, rclcpp::ParameterValue>;
 
         static ROS2ParametersMap GetROSDeclaration()
         {
             return {
-                {"lidar_min_range", rclcpp::ParameterValue(2.0)},
+                {"lidar_min_range", rclcpp::ParameterValue(4.0)},
                 {"lidar_max_range", rclcpp::ParameterValue(80.0)},
-                {"keyframe_voxel_size", rclcpp::ParameterValue(0.05)}
+                {"keyframe_voxel_size", rclcpp::ParameterValue(0.2)},
+                {"keyframe_max_points_cnt", rclcpp::ParameterValue(20)},
+                {"keyframe_matching_voxel_size", rclcpp::ParameterValue(0.3)},
+                {"keyframe_update_voxel_size", rclcpp::ParameterValue(0.1)},
+                {"keyframe_cleanup_range", rclcpp::ParameterValue(80.0)},
+                {"angular_divergence_threshold", rclcpp::ParameterValue(5.0)},
             };
         }
 
@@ -43,6 +53,11 @@ public:
             output.lidar_min_range = params.at("lidar_min_range").get<float>();
             output.lidar_max_range = params.at("lidar_max_range").get<float>();
             output.keyframe_voxel_size = params.at("keyframe_voxel_size").get<float>();
+            output.keyframe_max_points_cnt = params.at("keyframe_max_points_cnt").get<size_t>();
+            output.keyframe_matching_voxel_size = params.at("keyframe_matching_voxel_size").get<float>();
+            output.keyframe_update_voxel_size = params.at("keyframe_update_voxel_size").get<float>();
+            output.keyframe_cleanup_range = params.at("keyframe_cleanup_range").get<float>();
+            output.angular_divergence_threshold = params.at("angular_divergence_threshold").get<float>();
             return output;
         }
     };

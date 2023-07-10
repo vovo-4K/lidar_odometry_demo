@@ -16,7 +16,7 @@ LidarOdometry::LidarOdometry(const LidarOdometry::Params& config) : config_(conf
     current_transform_.rotation.setIdentity();
     previous_transform_ = current_transform_;
     keyframe_.setVoxelSize(config_.keyframe_voxel_size);
-    keyframe_.setMaxPoints(20);
+    keyframe_.setMaxPoints(config_.keyframe_max_points_cnt);
 }
 
 void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT> &input_cloud) {
@@ -34,7 +34,7 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
 
     auto filtered_cloud = utils::rangeFilter(*planar, config_.lidar_min_range, config_.lidar_max_range);
 
-    VoxelGrid keyframe_downsampler(0.1, 1);
+    VoxelGrid keyframe_downsampler(config_.keyframe_update_voxel_size, 1);
     keyframe_downsampler.addCloud(*filtered_cloud);
 
     if (keyframe_.size() == 0) {
@@ -43,7 +43,7 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
         return;
     }
 
-    VoxelGrid matching_downsampler(0.25, 1);
+    VoxelGrid matching_downsampler(config_.keyframe_matching_voxel_size, 1);
     matching_downsampler.addCloud(*filtered_cloud);
 
     CloudMatcher matcher;
@@ -53,9 +53,9 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
     {
         Eigen::Vector3f angles =
                 (new_transform_.rotation * current_transform_.rotation.inverse()).toRotationMatrix().eulerAngles(0, 1,2) *  180.0 / std::numbers::pi;
-        if (!((std::abs(angles(0)) < 5.0 || std::abs(angles(0)) > 175.0) &&
-              (std::abs(angles(1)) < 5.0 || std::abs(angles(1)) > 175.0) &&
-              (std::abs(angles(2)) < 5.0 || std::abs(angles(2)) > 175.0))) {
+        if (!((std::abs(angles(0)) < config_.angular_divergence_threshold || std::abs(angles(0)) > 180 - config_.angular_divergence_threshold) &&
+              (std::abs(angles(1)) < config_.angular_divergence_threshold || std::abs(angles(1)) > 180 - config_.angular_divergence_threshold) &&
+              (std::abs(angles(2)) < config_.angular_divergence_threshold || std::abs(angles(2)) > 180 - config_.angular_divergence_threshold))) {
             std::cout << "unstable rotation " << angles.transpose() << std::endl;
             //new_transform_.rotation = current_transform_.compose(relative_transform).rotation;
             new_transform_ = current_transform_.compose(relative_transform);
@@ -64,7 +64,7 @@ void LidarOdometry::processCloud(const pcl::PointCloud<lidar_point::PointXYZIRT>
 
     current_transform_ = new_transform_;
 
-    keyframe_.radiusCleanup(current_transform_.translation, 80.0);
+    keyframe_.radiusCleanup(current_transform_.translation, config_.keyframe_cleanup_range);
 
     auto keyframe_update = CloudTransformer::transformWithNormals(*keyframe_downsampler.getCloud(), current_transform_);
     keyframe_.addCloud(*keyframe_update);

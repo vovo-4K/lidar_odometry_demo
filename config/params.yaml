@@ -4,9 +4,11 @@
       lidar_min_range: 4.0
       lidar_max_range: 80.0
       keyframe_voxel_size: 0.2
+      keyframe_max_points_cnt: 20
       keyframe_matching_voxel_size: 0.3
       keyframe_update_voxel_size: 0.1
       keyframe_cleanup_range: 80.0
+      angular_divergence_threshold: 5.0
     output_frame_parent: "/odom"
     output_frame_child: "/base_scan"
     publish_full_keyframe: false

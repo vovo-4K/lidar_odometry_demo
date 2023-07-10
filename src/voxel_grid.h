@@ -33,7 +33,7 @@ public:
         std::size_t operator()(Indices const& indices) const noexcept
         {
             // https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf
-            return ((1<<33)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
+            return ((1<<22)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
         }
     };
 
