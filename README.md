@@ -30,28 +30,31 @@ There are two methods to run this package:
 Clone into workspace/src folder with:
 
 ```
-cd workspace/src
+cd ~/workspace/src
 git clone https://github.com/vovo-4K/lidar_odometry_demo.git
+cd lidar_odometry_demo
+git submodule init
+git submodule update
 ```
 
 Build workspace:
 
 ```
-cd workspace
+cd ~/workspace
 colcon build
 ```
 
 Run:
 
 ```
-source workspace/install/setup.sh
+source ~/workspace/install/setup.sh
 ros2 run lidar_odometry lidar_odometry_node 
 ```
 
 or
 
 ```
-source workspace/install/setup.sh
+source ~/workspace/install/setup.sh
 ros2 run lidar_odometry lidar_odometry_node --ros-args --params-file <path_to_config>
 ```
 
