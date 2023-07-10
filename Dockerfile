@@ -11,7 +11,7 @@ RUN git clone https://ceres-solver.googlesource.com/ceres-solver --depth 1 && \
   
 # build lidar odometry package  
 RUN mkdir -p /ws/src && cd /ws/src && \
-    git clone https://github.com/vovo-4K/lidar_odometry_demo.git -b point2plane_only --depth 1 && \
+    git clone https://github.com/vovo-4K/lidar_odometry_demo.git --depth 1 && \
     cd lidar_odometry_demo && \
     git submodule init && git submodule update
 
