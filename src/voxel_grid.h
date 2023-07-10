@@ -33,7 +33,7 @@ public:
         std::size_t operator()(Indices const& indices) const noexcept
         {
             // https://niessnerlab.org/papers/2013/4hashing/niessner2013hashing.pdf
-            return ((1<<20)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
+            return ((1<<33)-1) & (indices.ix * 73856093 ^ indices.iy * 19349669 ^ indices.iz * 83492791);
         }
     };
 
@@ -161,26 +161,6 @@ public:
         return output_cloud;
     }
 
-    void saveCloud() const
-    {/*
-        auto output_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZINormal>>();
-        for (const auto& voxel : voxels_) {
-            for (const auto &p : voxel.second.points) {
-                pcl::PointXYZINormal output_point;
-                output_point.x = p.x();
-                output_point.y = p.y();
-                output_point.z = p.z();
-                output_point.intensity = voxel.second.points.size();
-                output_point.normal_x = voxel.second.plane_normal(0);
-                output_point.normal_y = voxel.second.plane_normal(1);
-                output_point.normal_z = voxel.second.plane_normal(2);
-                output_cloud->points.push_back(output_point);
-            }
-        }
-        static int file_id = 0;
-        pcl::io::savePCDFileBinary("/home/vl/temp/cloud_"+std::to_string(file_id++)+".pcd", *output_cloud);*/
-    }
-
     Correspondence getCorrespondence(const Eigen::Vector3f& query, double max_correspondence_distance_sq) const
     {
         auto origin_idx = static_cast<int64_t>(query.x() / voxel_size_);
@@ -191,10 +171,6 @@ public:
 
         VoxelWithPlanes::PointWithNormal closest_point;
         double min_dist = std::numeric_limits<double>::max();
-
-        double h_sq = sqrt(max_correspondence_distance_sq)/3.0;
-        double weights_sum = 0.0;
-        double distance = 0.0;
 
         for (auto ix = origin_idx - 1; ix <= origin_idx + 1; ix++) {
             for (auto iy = origin_idy - 1;  iy <= origin_idy + 1; iy++) {
@@ -207,17 +183,10 @@ public:
                         for (const auto& point_with_normal : voxel.points_with_normals) {
                             double sq_dist = (query - point_with_normal.point).squaredNorm();
 
-                            if (sq_dist < max_correspondence_distance_sq) {
-
-                                if (sq_dist < min_dist) {
-                                    closest_point = point_with_normal;
-                                    min_dist = sq_dist;
-                                }
-
-                                double w = exp(-sq_dist / h_sq);
-
-                                distance += w * (query - point_with_normal.point).dot(point_with_normal.normal);
-                                weights_sum += w;
+                            if (sq_dist < max_correspondence_distance_sq
+                                && sq_dist < min_dist) {
+                                closest_point = point_with_normal;
+                                min_dist = sq_dist;
                             }
                         }
                     }
@@ -225,11 +194,10 @@ public:
             }
         }
 
-        if (weights_sum>1e-5) {
-            distance = distance / weights_sum;
+        if (min_dist<max_correspondence_distance_sq) {
             correspondence.valid = true;
             correspondence.plane_normal = closest_point.normal.cast<double>();
-            correspondence.plane_origin = (closest_point.point - distance*closest_point.normal).cast<double>();
+            correspondence.plane_origin = closest_point.point.cast<double>();
         }
 
         return correspondence;
