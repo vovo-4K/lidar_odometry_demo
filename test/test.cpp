@@ -188,42 +188,6 @@ TEST(CloudTransformer, RigidTransform)
     }
 }
 
-/*
-TEST(VoxelWithPlanes, PlaneParameters)
-{
-    using PlaneParams = std::pair<Eigen::Vector3f, Eigen::Vector3f>; // origin, normal
-    using PlanePoints = std::vector<Eigen::Vector3f>;
-
-    std::vector<std::pair<PlanePoints, PlaneParams>> test_cases =
-            {
-                    // z perpendicular
-                   {{{0,0,0}, {1,0,0}, {-1,0,0}, {0,1,0}, {0,-1,0}},
-                     {{0,0,0}, {0,0,1}}},
-                    // x perpendicular
-                    {{{0,20,0}, {0,30,0}, {0,10,0}, {0,20,-50}, {0,20,50}},
-                     {{0,20,0}, {1,0,0}}},
-                    // y perpendicular
-                    {{{5,0,0}, {4,0,0}, {6,0,0}, {5,0,-1}, {5,0,1}},
-                     {{5,0,0}, {0,-1,0}}},
-
-            };
-
-    for (const auto &test_case : test_cases) {
-        VoxelWithPlanes voxel;
-        for (const auto &point : test_case.first) {
-            voxel.addPoint(point(0), point(1), point(2));
-        }
-
-        auto origin_error = (voxel.plane_origin - test_case.second.first).norm();
-        auto normal_error = std::abs(voxel.plane_normal.dot(test_case.second.second));
-
-        ASSERT_LT(origin_error, 0.01);
-        ASSERT_GE(normal_error, 0.99);
-    }
-
-}
- */
-
 TEST(CloudMatcher, MatchingTest)
 {
     auto full_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
